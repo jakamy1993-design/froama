@@ -160,12 +160,12 @@ const LEAD_STATUSES = [
 
 // --- NUOVI MOCK PER GESTIONE ABBONAMENTI ---
 const MOCK_SUBSCRIPTIONS = [
-  { id: 101, name: 'Marco Gialli', username: 'marco_g_90', plan: 'Full 12 Mesi', status: 'expired', expireDate: '2024-01-09', daysLeft: -1, lastSeen: '2 giorni fa' },
-  { id: 102, name: 'Luca Bianchi', username: 'lucatv_pro', plan: 'Base 1 Mese', status: 'expiring', expireDate: '2025-01-12', daysLeft: 1, lastSeen: 'Oggi' },
-  { id: 103, name: 'Giuseppe Verdi', username: 'peppe_napoli', plan: 'Full Sport', status: 'expiring', expireDate: '2025-01-15', daysLeft: 3, lastSeen: 'Oggi' },
-  { id: 104, name: 'Luigi Neri', username: 'gigio_88', plan: 'Cinema 3 Mesi', status: 'active', expireDate: '2025-02-28', daysLeft: 45, lastSeen: 'Ieri' },
-  { id: 105, name: 'Test User 01', username: 'trial_x22', plan: 'Trial 24h', status: 'trial', expireDate: '2025-01-11', daysLeft: 0, lastSeen: '1 ora fa' },
-  { id: 106, name: 'Bar Sport', username: 'bar_sport_to', plan: 'Commercial', status: 'active', expireDate: '2025-08-01', daysLeft: 200, lastSeen: 'Ora' },
+  { id: 101, name: 'Marco Gialli', username: 'marco_g_90', plan: 'Full 12 Mesi', status: 'expired', expire_date: '2024-01-09', days_left: -1, last_seen: '2 giorni fa' },
+  { id: 102, name: 'Luca Bianchi', username: 'lucatv_pro', plan: 'Base 1 Mese', status: 'expiring', expire_date: '2025-01-12', days_left: 1, last_seen: 'Oggi' },
+  { id: 103, name: 'Giuseppe Verdi', username: 'peppe_napoli', plan: 'Full Sport', status: 'expiring', expire_date: '2025-01-15', days_left: 3, last_seen: 'Oggi' },
+  { id: 104, name: 'Luigi Neri', username: 'gigio_88', plan: 'Cinema 3 Mesi', status: 'active', expire_date: '2025-02-28', days_left: 45, last_seen: 'Ieri' },
+  { id: 105, name: 'Test User 01', username: 'trial_x22', plan: 'Trial 24h', status: 'trial', expire_date: '2025-01-11', days_left: 0, last_seen: '1 ora fa' },
+  { id: 106, name: 'Bar Sport', username: 'bar_sport_to', plan: 'Commercial', status: 'active', expire_date: '2025-08-01', days_left: 200, last_seen: 'Ora' },
 ];
 
 // --- COMPONENTI UI ---
@@ -459,8 +459,10 @@ const IptvManagerView = ({ subscriptions, onSendReminder, onAddSubscription, onN
     return sub.status === filterStatus;
   });
 
-  const expiredToday = subscriptions.filter(sub => sub.daysLeft === 0).length;
-  const expiringSoon = subscriptions.filter(sub => sub.daysLeft > 0 && sub.daysLeft <= 3).length;
+  const expiredToday = subscriptions.filter(sub => sub.days_left === 0).length;
+  const expiringSoon = subscriptions.filter(sub => sub.days_left > 0 && sub.days_left <= 3).length;
+  const activeLines = subscriptions.filter(sub => sub.status === 'active').length;
+  const trialCount = subscriptions.filter(sub => sub.status === 'trial').length;
 
   return (
     <div className="animate-fade-in space-y-6">
@@ -516,7 +518,7 @@ const IptvManagerView = ({ subscriptions, onSendReminder, onAddSubscription, onN
         >
           <div className="flex justify-between items-start mb-2">
             <div className="p-2 rounded-lg bg-emerald-500/20 text-emerald-400"><CheckCircle size={20}/></div>
-            <span className="text-2xl font-bold text-slate-100">850</span>
+            <span className="text-2xl font-bold text-slate-100">{activeLines}</span>
           </div>
           <p className="text-sm font-medium text-slate-300">Linee Attive</p>
           <p className="text-xs text-emerald-400 mt-1">98% Retention Rate</p>
@@ -528,7 +530,7 @@ const IptvManagerView = ({ subscriptions, onSendReminder, onAddSubscription, onN
         >
           <div className="flex justify-between items-start mb-2">
             <div className="p-2 rounded-lg bg-indigo-500/20 text-indigo-400"><Zap size={20}/></div>
-            <span className="text-2xl font-bold text-slate-100">5</span>
+            <span className="text-2xl font-bold text-slate-100">{trialCount}</span>
           </div>
           <p className="text-sm font-medium text-slate-300">Trial / Test</p>
           <p className="text-xs text-indigo-400 mt-1">In conversione</p>
@@ -582,7 +584,7 @@ const IptvManagerView = ({ subscriptions, onSendReminder, onAddSubscription, onN
                              <span className="font-bold text-slate-200 text-base">{sub.name}</span>
                              <div className="flex items-center gap-2 mt-0.5">
                                <span className="text-xs font-mono text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">{sub.username}</span>
-                               <span className="text-[10px] text-slate-500 flex items-center gap-1"><Activity size={10}/> {sub.lastSeen}</span>
+                               <span className="text-[10px] text-slate-500 flex items-center gap-1"><Activity size={10}/> {sub.last_seen}</span>
                              </div>
                            </div>
                         </td>
@@ -598,11 +600,11 @@ const IptvManagerView = ({ subscriptions, onSendReminder, onAddSubscription, onN
                         </td>
                         <td className="py-4 px-4">
                            <div className="flex flex-col">
-                              <span className={`font-mono font-medium ${sub.daysLeft < 0 ? 'text-red-400' : sub.daysLeft <= 3 ? 'text-yellow-400' : 'text-slate-300'}`}>
-                                {sub.expireDate}
+                              <span className={`font-mono font-medium ${sub.days_left < 0 ? 'text-red-400' : sub.days_left <= 3 ? 'text-yellow-400' : 'text-slate-300'}`}>
+                                {sub.expire_date}
                               </span>
-                              <span className={`text-xs font-bold mt-0.5 ${sub.daysLeft < 0 ? 'text-red-500' : sub.daysLeft <= 3 ? 'text-yellow-500' : 'text-slate-500'}`}>
-                                {sub.daysLeft < 0 ? `SCADUTO DA ${Math.abs(sub.daysLeft)} GG` : sub.daysLeft === 0 ? 'SCADE OGGI' : `${sub.daysLeft} giorni rimanenti`}
+                              <span className={`text-xs font-bold mt-0.5 ${sub.days_left < 0 ? 'text-red-500' : sub.days_left <= 3 ? 'text-yellow-500' : 'text-slate-500'}`}>
+                                {sub.days_left < 0 ? `SCADUTO DA ${Math.abs(sub.days_left)} GG` : sub.days_left === 0 ? 'SCADE OGGI' : `${sub.days_left} giorni rimanenti`}
                               </span>
                            </div>
                         </td>
@@ -2953,8 +2955,8 @@ export default function App() {
   const buildFrenchMessage = (type, sub, client) => {
     const name = client?.name || sub.name || 'Bonjour';
     const plan = sub.plan || '';
-    const expire = sub.expireDate || '';
-    const days = typeof sub.daysLeft === 'number' ? sub.daysLeft : null;
+    const expire = sub.expire_date || '';
+    const days = typeof sub.days_left === 'number' ? sub.days_left : null;
 
     if (type === 'expired') {
       return `Bonjour ${name},\nVotre abonnement ${plan} a expiré le ${expire}.\nSouhaitez-vous le renouveler maintenant ? Répondez OUI pour confirmer.`;
@@ -2972,7 +2974,7 @@ export default function App() {
   const handleNotifySubscription = (sub) => {
     // find client by name or username
     const client = clients.find(c => c.name === sub.name || (c.iptv && c.iptv.username === sub.username));
-    const type = sub.daysLeft < 0 ? 'expired' : (sub.daysLeft <= 3 ? 'expiring' : 'expiring');
+    const type = sub.days_left < 0 ? 'expired' : (sub.days_left <= 3 ? 'expiring' : 'expiring');
     const msg = buildFrenchMessage(type, sub, client);
     const phone = client?.phone || sub.phone;
     if (!phone) {
@@ -3002,7 +3004,7 @@ export default function App() {
     } else if (target === 'expired') {
       recipients = subscriptions.filter(s => s.status === 'expired');
     } else if (target === 'urgent') {
-      recipients = subscriptions.filter(s => s.status === 'expiring' || s.daysLeft <= 3);
+      recipients = subscriptions.filter(s => s.status === 'expiring' || s.days_left <= 3);
     } else if (target === 'selected') {
       // no selected context passed here — fallback to all
       recipients = subscriptions.slice();
@@ -3013,7 +3015,7 @@ export default function App() {
       const client = clients.find(c => c.name === sub.name || (c.iptv && c.iptv.username === sub.username));
       const phone = client?.phone || sub.phone;
       if (!phone) { missingPhones++; return; }
-      const type = sub.daysLeft < 0 ? 'expired' : (sub.daysLeft <= 3 ? 'expiring' : 'expiring');
+      const type = sub.days_left < 0 ? 'expired' : (sub.days_left <= 3 ? 'expiring' : 'expiring');
       const msg = customMessage && customMessage.trim().length > 0 ? customMessage : buildFrenchMessage(type, sub, client);
       sendWhatsApp(phone, msg);
     });
