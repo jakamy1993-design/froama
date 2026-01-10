@@ -1,6 +1,21 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import {
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer
+} from 'recharts';
+import {
   LayoutDashboard,
   Users,
   Tv,
@@ -58,12 +73,6 @@ const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY || 'your-anon-
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // --- DATI MOCK (SIMULATI) ---
-const MOCK_STATS = [
-  { label: 'Totale Clienti', value: '1,240', change: '+12%', icon: Users, color: 'text-blue-500' },
-  { label: 'Linee IPTV Attive', value: '856', change: '+5%', icon: Tv, color: 'text-violet-500' },
-  { label: 'Fatturato Mese', value: '€ 12.4k', change: '+8.2%', icon: Euro, color: 'text-emerald-500' },
-  { label: 'Ticket Aperti', value: '12', change: '-2', icon: MessageSquare, color: 'text-orange-500' },
-];
 
 const MOCK_CLIENTS = [
   {
@@ -1633,59 +1642,258 @@ const FinanceCalculatorView = ({ clients, subscriptions }) => {
   );
 };
 
-const DashboardView = ({ onSelectClient, clients, onBotAction, stats }) => (
-  <div className="space-y-6 animate-fade-in">
-    {/* Header Stats */}
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-      {stats.map((stat, idx) => (
-        <div key={idx} className="p-5 border shadow-sm bg-slate-800 border-slate-700 rounded-xl">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-sm font-medium text-slate-400">{stat.label}</span>
-            <div className={`p-2 rounded-lg bg-slate-700/50 ${stat.color}`}>
-              <stat.icon size={20} />
+const DashboardView = ({ onSelectClient, clients, onBotAction, stats }) => {
+  // Dati per i grafici
+  const revenueData = [
+    { month: 'Gen', revenue: 8500, expenses: 3200, profit: 5300 },
+    { month: 'Feb', revenue: 9200, expenses: 3800, profit: 5400 },
+    { month: 'Mar', revenue: 10100, expenses: 4100, profit: 6000 },
+    { month: 'Apr', revenue: 11800, expenses: 4500, profit: 7300 },
+    { month: 'Mag', revenue: 12400, expenses: 4800, profit: 7600 },
+    { month: 'Giu', revenue: 13200, expenses: 5200, profit: 8000 },
+  ];
+
+  const clientTypeData = [
+    { name: 'Standard', value: 65, color: '#3b82f6' },
+    { name: 'Reseller', value: 25, color: '#8b5cf6' },
+    { name: 'VIP', value: 8, color: '#f59e0b' },
+    { name: 'Trial', value: 2, color: '#10b981' },
+  ];
+
+  const subscriptionData = [
+    { plan: 'Full 12M', active: 245, expired: 12 },
+    { plan: 'Base 1M', active: 189, expired: 8 },
+    { plan: 'Sport', active: 156, expired: 15 },
+    { plan: 'Cinema', active: 134, expired: 6 },
+    { plan: 'Trial', active: 23, expired: 45 },
+  ];
+
+  return (
+    <div className="space-y-8 animate-fade-in">
+      {/* Header Stats con design premium */}
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+        {stats.map((stat, idx) => (
+          <div key={idx} className="relative overflow-hidden p-6 bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 group">
+            <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-sm font-medium text-slate-400 uppercase tracking-wide">{stat.label}</span>
+                <div className={`p-3 rounded-xl bg-gradient-to-br ${stat.color} shadow-lg`}>
+                  <stat.icon size={24} className="text-white" />
+                </div>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <h3 className="text-3xl font-bold text-white">{stat.value}</h3>
+                <span className={`text-sm font-semibold px-2 py-1 rounded-full ${
+                  stat.change.startsWith('+')
+                    ? 'text-emerald-300 bg-emerald-500/20'
+                    : 'text-red-300 bg-red-500/20'
+                }`}>
+                  {stat.change}
+                </span>
+              </div>
             </div>
           </div>
-          <div className="flex items-baseline gap-2">
-            <h3 className="text-2xl font-bold text-slate-100">{stat.value}</h3>
-            <span className={`text-xs font-medium ${stat.change.startsWith('+') ? 'text-emerald-400' : 'text-red-400'}`}>
-              {stat.change}
-            </span>
+        ))}
+      </div>
+
+      {/* Grafici principali */}
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+        {/* Grafico Ricavi */}
+        <div className="p-6 bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 rounded-2xl shadow-xl">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-lg">
+              <TrendingUp size={20} className="text-white" />
+            </div>
+            <h3 className="text-xl font-bold text-white">Andamento Ricavi</h3>
+          </div>
+          <ResponsiveContainer width="100%" height={300}>
+            <AreaChart data={revenueData}>
+              <defs>
+                <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                </linearGradient>
+                <linearGradient id="profitGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+              <XAxis dataKey="month" stroke="#9ca3af" />
+              <YAxis stroke="#9ca3af" />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#1e293b',
+                  border: '1px solid #374151',
+                  borderRadius: '8px',
+                  color: '#f1f5f9'
+                }}
+              />
+              <Area
+                type="monotone"
+                dataKey="revenue"
+                stroke="#10b981"
+                fillOpacity={1}
+                fill="url(#revenueGradient)"
+                strokeWidth={3}
+              />
+              <Area
+                type="monotone"
+                dataKey="profit"
+                stroke="#3b82f6"
+                fillOpacity={1}
+                fill="url(#profitGradient)"
+                strokeWidth={2}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Grafico Tipi Clienti */}
+        <div className="p-6 bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 rounded-2xl shadow-xl">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 bg-gradient-to-br from-violet-500 to-purple-500 rounded-lg">
+              <Users size={20} className="text-white" />
+            </div>
+            <h3 className="text-xl font-bold text-white">Distribuzione Clienti</h3>
+          </div>
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie
+                data={clientTypeData}
+                cx="50%"
+                cy="50%"
+                innerRadius={60}
+                outerRadius={120}
+                paddingAngle={5}
+                dataKey="value"
+              >
+                {clientTypeData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} />
+                ))}
+              </Pie>
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#1e293b',
+                  border: '1px solid #374151',
+                  borderRadius: '8px',
+                  color: '#f1f5f9'
+                }}
+              />
+              <Legend
+                wrapperStyle={{ color: '#f1f5f9' }}
+              />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Grafico Sottoscrizioni e Tabella Clienti */}
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+        {/* Grafico Sottoscrizioni */}
+        <div className="lg:col-span-2 p-6 bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 rounded-2xl shadow-xl">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-lg">
+              <Tv size={20} className="text-white" />
+            </div>
+            <h3 className="text-xl font-bold text-white">Sottoscrizioni per Piano</h3>
+          </div>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={subscriptionData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+              <XAxis dataKey="plan" stroke="#9ca3af" />
+              <YAxis stroke="#9ca3af" />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#1e293b',
+                  border: '1px solid #374151',
+                  borderRadius: '8px',
+                  color: '#f1f5f9'
+                }}
+              />
+              <Legend wrapperStyle={{ color: '#f1f5f9' }} />
+              <Bar dataKey="active" fill="#10b981" name="Attive" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="expired" fill="#ef4444" name="Scadute" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="p-6 bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 rounded-2xl shadow-xl">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-lg">
+              <Bot size={20} className="text-white" />
+            </div>
+            <h3 className="text-xl font-bold text-white">Azioni Rapide</h3>
+          </div>
+          <div className="space-y-4">
+            <button
+              onClick={() => onBotAction('Invia Promo Scadenza (IPTV)')}
+              className="flex items-center justify-between w-full p-4 text-sm text-left transition-all duration-200 border rounded-xl bg-gradient-to-r from-slate-700/50 to-slate-600/50 border-slate-600 hover:from-indigo-600/20 hover:to-purple-600/20 hover:border-indigo-500/50 hover:shadow-lg group"
+            >
+              <span className="text-slate-200 font-medium">📢 Promo Scadenza IPTV</span>
+              <MessageSquare size={18} className="text-slate-400 group-hover:text-indigo-400 transition-colors" />
+            </button>
+            <button
+              onClick={() => onBotAction('Report Mercati Crypto')}
+              className="flex items-center justify-between w-full p-4 text-sm text-left transition-all duration-200 border rounded-xl bg-gradient-to-r from-slate-700/50 to-slate-600/50 border-slate-600 hover:from-emerald-600/20 hover:to-teal-600/20 hover:border-emerald-500/50 hover:shadow-lg group"
+            >
+              <span className="text-slate-200 font-medium">📈 Report Crypto</span>
+              <TrendingUp size={18} className="text-slate-400 group-hover:text-emerald-400 transition-colors" />
+            </button>
+            <button
+              onClick={() => onBotAction('Alert Manutenzione Server')}
+              className="flex items-center justify-between w-full p-4 text-sm text-left transition-all duration-200 border rounded-xl bg-gradient-to-r from-slate-700/50 to-slate-600/50 border-slate-600 hover:from-red-600/20 hover:to-pink-600/20 hover:border-red-500/50 hover:shadow-lg group"
+            >
+              <span className="text-slate-200 font-medium">⚠️ Manutenzione Server</span>
+              <AlertTriangle size={18} className="text-slate-400 group-hover:text-red-400 transition-colors" />
+            </button>
           </div>
         </div>
-      ))}
-    </div>
+      </div>
 
-    {/* Quick Actions & Recent */}
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-      {/* Tabella Attività Recenti (Semplificata) */}
-      <div className="col-span-2 p-6 border bg-slate-800 border-slate-700 rounded-xl">
-        <h3 className="mb-4 text-lg font-semibold text-slate-100">Clienti Recenti</h3>
+      {/* Tabella Clienti Recenti con design migliorato */}
+      <div className="p-6 bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 rounded-2xl shadow-xl">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-lg">
+            <Users size={20} className="text-white" />
+          </div>
+          <h3 className="text-xl font-bold text-white">Clienti Recenti</h3>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
               <tr className="text-xs uppercase border-b border-slate-700 text-slate-400">
-                <th className="pb-3 pl-2">Cliente</th>
-                <th className="pb-3">Tipo</th>
-                <th className="pb-3">Stato</th>
-                <th className="pb-3 text-right">Azione</th>
+                <th className="pb-4 pl-2 font-semibold">Cliente</th>
+                <th className="pb-4 font-semibold">Tipo</th>
+                <th className="pb-4 font-semibold">Stato</th>
+                <th className="pb-4 text-right font-semibold">Azione</th>
               </tr>
             </thead>
             <tbody className="text-sm">
-              {clients.map(client => (
-                <tr key={client.id} className="border-b border-slate-700/50 last:border-0 hover:bg-slate-700/30 transition-colors">
-                  <td className="py-3 pl-2 font-medium text-slate-200">{client.name}</td>
-                  <td className="py-3">
+              {clients.slice(0, 5).map(client => (
+                <tr key={client.id} className="border-b border-slate-700/50 last:border-0 hover:bg-gradient-to-r hover:from-slate-700/30 hover:to-indigo-900/10 transition-all duration-200">
+                  <td className="py-4 pl-2">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold text-xs">
+                        {client.avatar}
+                      </div>
+                      <span className="font-medium text-slate-200">{client.name}</span>
+                    </div>
+                  </td>
+                  <td className="py-4">
                     <span className="text-slate-400">{client.type}</span>
                   </td>
-                  <td className="py-3">
+                  <td className="py-4">
                     <Badge color={client.status === 'active' ? 'green' : client.status === 'warning' ? 'yellow' : 'red'}>
                       {client.status === 'active' ? 'Attivo' : 'Scadenza'}
                     </Badge>
                   </td>
-                  <td className="py-3 text-right">
-                    <button 
+                  <td className="py-4 text-right">
+                    <button
                       onClick={() => onSelectClient(client)}
-                      className="text-xs font-medium text-indigo-400 hover:text-indigo-300"
+                      className="px-3 py-1 text-xs font-medium text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 rounded-lg transition-all duration-200"
                     >
                       Gestisci
                     </button>
@@ -1696,31 +1904,9 @@ const DashboardView = ({ onSelectClient, clients, onBotAction, stats }) => (
           </table>
         </div>
       </div>
-
-      {/* Automazioni / Bot Rapido */}
-      <div className="p-6 border bg-slate-800 border-slate-700 rounded-xl">
-        <div className="flex items-center gap-2 mb-4">
-          <Bot className="text-indigo-400" size={20} />
-          <h3 className="text-lg font-semibold text-slate-100">Quick Bot Actions</h3>
-        </div>
-        <div className="space-y-3">
-          <button onClick={() => onBotAction('Invia Promo Scadenza (IPTV)')} className="flex items-center justify-between w-full p-3 text-sm text-left transition-colors border rounded-lg bg-slate-700/30 border-slate-600 hover:bg-slate-700 hover:border-indigo-500/50">
-            <span className="text-slate-300">📢 Invia Promo Scadenza (IPTV)</span>
-            <MessageSquare size={16} className="text-slate-500" />
-          </button>
-          <button onClick={() => onBotAction('Report Mercati Crypto')} className="flex items-center justify-between w-full p-3 text-sm text-left transition-colors border rounded-lg bg-slate-700/30 border-slate-600 hover:bg-slate-700 hover:border-emerald-500/50">
-            <span className="text-slate-300">📈 Report Mercati Crypto</span>
-            <TrendingUp size={16} className="text-slate-500" />
-          </button>
-          <button onClick={() => onBotAction('Alert Manutenzione Server')} className="flex items-center justify-between w-full p-3 text-sm text-left transition-colors border rounded-lg bg-slate-700/30 border-slate-600 hover:bg-slate-700 hover:border-red-500/50">
-            <span className="text-slate-300">⚠️ Alert Manutenzione Server</span>
-            <AlertTriangle size={16} className="text-slate-500" />
-          </button>
-        </div>
-      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const ClientDetailView = ({ client, onBack, onEdit, onAddIptv }) => {
   const [activeTab, setActiveTab] = useState('profile'); // profile, iptv, finance
