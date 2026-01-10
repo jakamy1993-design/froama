@@ -2217,6 +2217,7 @@ export default function App() {
 
   const [showMassReminderModal, setShowMassReminderModal] = useState(false);
   const [showAddIptvModal, setShowAddIptvModal] = useState(false);
+  const [showClientModal, setShowClientModal] = useState(false);
 
   // Fetch data from Supabase
   const fetchSupabaseData = async () => {
