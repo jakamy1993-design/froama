@@ -93,7 +93,7 @@ CREATE TABLE IF NOT EXISTS accounting (
   id BIGSERIAL PRIMARY KEY,
   period TEXT NOT NULL, -- '2024-01', '2024-02', etc.
   type TEXT NOT NULL CHECK (type IN ('income', 'expense', 'profit')),
-  category TEXT NOT NULL CHECK (category IN ('subscription', 'reseller', 'server_cost', 'credit_cost', 'marketing', 'other')),
+  category TEXT NOT NULL CHECK (category IN ('subscription', 'reseller', 'server_cost', 'credit_cost', 'marketing', 'net_profit', 'other')),
   description TEXT NOT NULL,
   amount DECIMAL(10,2) NOT NULL,
   currency TEXT DEFAULT 'EUR',
@@ -434,7 +434,7 @@ CREATE POLICY "Allow all operations for authenticated users" ON settings FOR ALL
 CREATE POLICY "Allow all operations for authenticated users" ON clients FOR ALL USING (true);
 CREATE POLICY "Allow all operations for authenticated users" ON leads FOR ALL USING (true);
 CREATE POLICY "Allow all operations for authenticated users" ON subscriptions FOR ALL USING (true);
-CREATE POLICY "Allow all operations for authenticated users" ON accounting FOR ALL USING (true);
+CREATE POLICY "Allow all operations for authenticated users" ON accounting FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all operations for authenticated users" ON product_margins FOR ALL USING (true);
 CREATE POLICY "Allow all operations for authenticated users" ON automations FOR ALL USING (true);
 CREATE POLICY "Allow all operations for authenticated users" ON activity_log FOR ALL USING (true);
