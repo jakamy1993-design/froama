@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS leads (
   follow_up_date DATE,
   conversion_probability INTEGER DEFAULT 0 CHECK (conversion_probability >= 0 AND conversion_probability <= 100),
   notes TEXT,
-  converted_client_id BIGINT REFERENCES clients(id), -- collega al cliente se convertito
+  converted_client_id BIGINT REFERENCES clients(id) ON DELETE SET NULL, -- collega al cliente se convertito
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -97,8 +97,8 @@ CREATE TABLE IF NOT EXISTS accounting (
   description TEXT NOT NULL,
   amount DECIMAL(10,2) NOT NULL,
   currency TEXT DEFAULT 'EUR',
-  client_id BIGINT REFERENCES clients(id), -- nullable, per collegare a cliente specifico
-  subscription_id BIGINT REFERENCES subscriptions(id), -- nullable, per collegare ad abbonamento
+  client_id BIGINT REFERENCES clients(id) ON DELETE CASCADE, -- nullable, per collegare a cliente specifico
+  subscription_id BIGINT REFERENCES subscriptions(id) ON DELETE CASCADE, -- nullable, per collegare ad abbonamento
   lead_id BIGINT REFERENCES leads(id), -- nullable, per collegare a lead
   payment_method TEXT CHECK (payment_method IN ('paypal', 'bank_transfer', 'crypto', 'cash', 'card', 'other')),
   transaction_date DATE NOT NULL,
@@ -285,19 +285,30 @@ CREATE OR REPLACE FUNCTION update_product_margin_on_subscription()
 RETURNS TRIGGER AS $$
 DECLARE
   cost_price decimal(10,2);
+  margin_pct decimal(5,2);
 BEGIN
   -- Calcola costo basato sul prezzo (margine 80%)
   cost_price := NEW.price * 0.2;
 
+  -- Calcola margine percentuale, gestendo il caso prezzo zero
+  margin_pct := CASE
+    WHEN NEW.price > 0 THEN ROUND(((NEW.price - cost_price) / NEW.price) * 100, 2)
+    ELSE 0
+  END;
+
   -- Aggiorna o inserisci margine prodotto
   INSERT INTO product_margins (product_name, plan_type, selling_price, cost_price, margin_percentage, total_sold, total_revenue, total_cost, total_profit)
-  VALUES (NEW.plan, 'subscription', NEW.price, cost_price, ROUND(((NEW.price - cost_price) / NEW.price) * 100, 2), 1, NEW.price, cost_price, NEW.price - cost_price)
+  VALUES (NEW.plan, 'subscription', NEW.price, cost_price, margin_pct, 1, NEW.price, cost_price, NEW.price - cost_price)
   ON CONFLICT (product_name) DO UPDATE SET
     total_sold = product_margins.total_sold + 1,
     total_revenue = product_margins.total_revenue + NEW.price,
     total_cost = product_margins.total_cost + EXCLUDED.cost_price,
     total_profit = product_margins.total_revenue + NEW.price - (product_margins.total_cost + EXCLUDED.cost_price),
-    margin_percentage = ROUND((((product_margins.total_revenue + NEW.price) - (product_margins.total_cost + EXCLUDED.cost_price)) / (product_margins.total_revenue + NEW.price)) * 100, 2),
+    margin_percentage = CASE
+      WHEN (product_margins.total_revenue + NEW.price) > 0 THEN
+        ROUND((((product_margins.total_revenue + NEW.price) - (product_margins.total_cost + EXCLUDED.cost_price)) / (product_margins.total_revenue + NEW.price)) * 100, 2)
+      ELSE 0
+    END,
     updated_at = NOW();
 
   RETURN NEW;
@@ -473,13 +484,13 @@ INSERT INTO leads (name, email, phone, source, status, time, interest) VALUES
 ('Cleopatra VII', 'cleopatra.vii@email.com', '+39 337 5678901', 'WhatsApp', 'new', '10m fa', 'Crypto Info');
 
 -- Abbonamenti di esempio
-INSERT INTO subscriptions (client_id, name, username, plan, status, expire_date, days_left, last_seen, phone, mac_address, connections, price, cost, margin_percentage) VALUES
-(1, 'Mario Rossi', 'mario_tv_88', 'Full 12 Mesi', 'expired', '2024-01-09', -1, '2 giorni fa', '+39 333 1234567', '00:1A:79:44:2B:11', 1, 80.00, 16.00, 80.00),
-(2, 'Luca Bianchi', 'lucatv_pro', 'Base 1 Mese', 'expiring', '2025-01-12', 1, 'Oggi', '+39 340 9876543', '11:2B:44:55:FF:AA', 2, 10.00, 2.00, 80.00),
-(NULL, 'Giuseppe Verdi', 'peppe_napoli', 'Full Sport', 'expiring', '2025-01-15', 3, 'Oggi', '+39 339 2345678', '22:3C:55:66:GG:BB', 1, 45.00, 9.00, 80.00),
-(NULL, 'Luigi Neri', 'gigio_88', 'Cinema 3 Mesi', 'active', '2025-02-28', 45, 'Ieri', '+39 341 3456789', '33:4D:66:77:HH:CC', 1, 25.00, 5.00, 80.00),
-(NULL, 'Test User 01', 'trial_x22', 'Trial 24h', 'trial', '2025-01-11', 0, '1 ora fa', '+39 342 4567890', '44:5E:77:88:II:DD', 1, 0.00, 0.00, 0.00),
-(NULL, 'Bar Sport', 'bar_sport_to', 'Commercial', 'active', '2025-08-01', 200, 'Ora', '+39 343 5678901', '55:6F:88:99:JJ:EE', 5, 150.00, 30.00, 80.00);
+INSERT INTO subscriptions (name, username, plan, status, expire_date, days_left, last_seen, phone, mac_address, connections, price, cost, margin_percentage) VALUES
+('Mario Rossi', 'mario_tv_88', 'Full 12 Mesi', 'expired', '2024-01-09', -1, '2 giorni fa', '+39 333 1234567', '00:1A:79:44:2B:11', 1, 80.00, 16.00, 80.00),
+('Luca Bianchi', 'lucatv_pro', 'Base 1 Mese', 'expiring', '2025-01-12', 1, 'Oggi', '+39 340 9876543', '11:2B:44:55:FF:AA', 2, 10.00, 2.00, 80.00),
+('Giuseppe Verdi', 'peppe_napoli', 'Full Sport', 'expiring', '2025-01-15', 3, 'Oggi', '+39 339 2345678', '22:3C:55:66:GG:BB', 1, 45.00, 9.00, 80.00),
+('Luigi Neri', 'gigio_88', 'Cinema 3 Mesi', 'active', '2025-02-28', 45, 'Ieri', '+39 341 3456789', '33:4D:66:77:HH:CC', 1, 25.00, 5.00, 80.00),
+('Test User 01', 'trial_x22', 'Trial 24h', 'trial', '2025-01-11', 0, '1 ora fa', '+39 342 4567890', '44:5E:77:88:II:DD', 1, 0.00, 0.00, 0.00),
+('Bar Sport', 'bar_sport_to', 'Commercial', 'active', '2025-08-01', 200, 'Ora', '+39 343 5678901', '55:6F:88:99:JJ:EE', 5, 150.00, 30.00, 80.00);
 
 -- Automazioni di esempio
 INSERT INTO automations (name, type, trigger_condition, action_config, is_active) VALUES

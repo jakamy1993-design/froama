@@ -407,16 +407,24 @@ const SettingsView = ({ settings, onUpdateSettings }) => {
 };
 
 // --- NUOVA VISTA GESTIONE SCADENZE IPTV ---
-const IptvManagerView = ({ subscriptions, onSendReminder, onAddSubscription, onNotifySubscription, onRenewSubscription }) => {
+const IptvManagerView = ({ subscriptions, onSendReminder, onAddSubscription, onNotifySubscription, onRenewSubscription, clients, onEditClient, onDeleteClient, onContactWhatsApp, onViewClientDetail, onUpdateSubscription, onDeleteSubscription, onEditSubscription }) => {
   const [filterStatus, setFilterStatus] = useState('all'); // all, urgent, active, expired
   const [selectedSubs, setSelectedSubs] = useState(new Set());
-
+  const [selectedClient, setSelectedClient] = useState(null);
   const toggleSelect = (id) => {
     setSelectedSubs(prev => {
       const copy = new Set(prev);
       if (copy.has(id)) copy.delete(id); else copy.add(id);
       return copy;
     });
+  };
+
+  const selectClient = (clientName) => {
+    if (selectedClient === clientName) {
+      setSelectedClient(null);
+    } else {
+      setSelectedClient(clientName);
+    }
   };
 
   const selectAllFiltered = (items) => {
@@ -431,6 +439,11 @@ const IptvManagerView = ({ subscriptions, onSendReminder, onAddSubscription, onN
       }
       return copy;
     });
+  };
+
+  const getClientSubscriptions = () => {
+    if (!selectedClient) return filteredSubs;
+    return filteredSubs.filter(sub => sub.name === selectedClient);
   };
 
   const getStatusColor = (status) => {
@@ -459,7 +472,7 @@ const IptvManagerView = ({ subscriptions, onSendReminder, onAddSubscription, onN
     return sub.status === filterStatus;
   });
 
-  const expiredToday = subscriptions.filter(sub => sub.days_left === 0).length;
+  const expiredToday = subscriptions.filter(sub => sub.status === 'expired').length;
   const expiringSoon = subscriptions.filter(sub => sub.days_left > 0 && sub.days_left <= 3).length;
   const activeLines = subscriptions.filter(sub => sub.status === 'active').length;
   const trialCount = subscriptions.filter(sub => sub.status === 'trial').length;
@@ -496,7 +509,7 @@ const IptvManagerView = ({ subscriptions, onSendReminder, onAddSubscription, onN
             <div className="p-2 rounded-lg bg-red-500/20 text-red-400"><AlertCircle size={20}/></div>
             <span className="text-2xl font-bold text-slate-100">{expiredToday}</span>
           </div>
-          <p className="text-sm font-medium text-slate-300">Scaduti Oggi</p>
+          <p className="text-sm font-medium text-slate-300">Scaduti (totale)</p>
           <p className="text-xs text-red-400 mt-1">Azione immediata richiesta</p>
         </div>
 
@@ -539,6 +552,74 @@ const IptvManagerView = ({ subscriptions, onSendReminder, onAddSubscription, onN
 
       {/* Tabella Scadenze e Gestione */}
       <div className="border bg-slate-800 border-slate-700 rounded-xl overflow-hidden shadow-lg">
+
+         {/* Menu Cliente Selezionato */}
+         {selectedClient && (
+           <div className="bg-indigo-600/10 border-b border-indigo-500/30 p-4">
+             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+               <div className="flex items-center gap-3">
+                 <div className="w-10 h-10 rounded-full bg-indigo-500/20 flex items-center justify-center">
+                   <Users size={20} className="text-indigo-400" />
+                 </div>
+                 <div>
+                   <h4 className="text-lg font-semibold text-slate-100">{selectedClient}</h4>
+                   <p className="text-sm text-slate-400">Abbonamenti attivi: {getClientSubscriptions().length}</p>
+                 </div>
+               </div>
+               <div className="flex gap-2 flex-wrap">
+                 <button
+                   onClick={() => {
+                     const client = clients.find(c => c.name === selectedClient);
+                     if (client && onViewClientDetail) onViewClientDetail(client);
+                   }}
+                   className="flex items-center gap-2 px-4 py-2 bg-slate-600 hover:bg-slate-500 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
+                 >
+                   <Eye size={16} /> Visualizza Dettagli
+                 </button>
+                 <button
+                   onClick={() => {
+                     const client = clients.find(c => c.name === selectedClient);
+                    if (client && onContactWhatsApp) onContactWhatsApp(client);
+                   }}
+                   className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
+                 >
+                   <MessageSquare size={16} /> WhatsApp
+                 </button>
+                 <button
+                   onClick={() => onAddSubscription && onAddSubscription()}
+                   className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
+                 >
+                   <Plus size={16} /> Nuovo Abbonamento
+                 </button>
+                 <button
+                   onClick={() => {
+                     const client = clients.find(c => c.name === selectedClient);
+                     if (client && onEditClient) onEditClient(client);
+                   }}
+                   className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
+                 >
+                   <Edit size={16} /> Modifica Cliente
+                 </button>
+                 <button
+                   onClick={() => {
+                     const client = clients.find(c => c.name === selectedClient);
+                     if (client && onDeleteClient) onDeleteClient(client.id);
+                   }}
+                   className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
+                 >
+                   <Trash2 size={16} /> Elimina Cliente
+                 </button>
+                 <button
+                   onClick={() => setSelectedClient(null)}
+                   className="flex items-center gap-2 px-4 py-2 bg-slate-600 hover:bg-slate-500 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
+                 >
+                   <X size={16} /> Deseleziona
+                 </button>
+               </div>
+             </div>
+           </div>
+         )}
+
          <div className="p-4 border-b border-slate-700 bg-slate-800/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <h3 className="text-lg font-semibold text-slate-100 flex items-center gap-2">
               <List size={20} className="text-slate-400"/> Lista Abbonamenti
@@ -564,7 +645,7 @@ const IptvManagerView = ({ subscriptions, onSendReminder, onAddSubscription, onN
               <thead>
                 <tr className="bg-slate-900/80 text-xs uppercase border-b border-slate-700 text-slate-400">
                   <th className="py-4 pl-4 font-semibold w-12">
-                    <input type="checkbox" onChange={() => selectAllFiltered(filteredSubs)} checked={filteredSubs.length > 0 && filteredSubs.every(s => selectedSubs.has(s.id))} />
+                    <input type="checkbox" onChange={() => selectAllFiltered(getClientSubscriptions())} checked={getClientSubscriptions().length > 0 && getClientSubscriptions().every(s => selectedSubs.has(s.id))} />
                   </th>
                   <th className="py-4 pl-6 font-semibold w-1/4">Cliente / Utente</th>
                   <th className="py-4 px-4 font-semibold">Piano</th>
@@ -574,14 +655,19 @@ const IptvManagerView = ({ subscriptions, onSendReminder, onAddSubscription, onN
                 </tr>
               </thead>
                <tbody className="text-sm divide-y divide-slate-700/50">
-                  {filteredSubs.map(sub => (
+                  {getClientSubscriptions().map(sub => (
                      <tr key={sub.id} className="hover:bg-slate-700/30 transition-colors group">
                        <td className="py-4 pl-4">
                          <input type="checkbox" checked={selectedSubs.has(sub.id)} onChange={() => toggleSelect(sub.id)} />
                        </td>
                         <td className="py-4 pl-6">
                            <div className="flex flex-col">
-                             <span className="font-bold text-slate-200 text-base">{sub.name}</span>
+                             <button
+                               onClick={() => selectClient(sub.name)}
+                               className={`font-bold text-base transition-colors text-left ${selectedClient === sub.name ? 'text-indigo-400' : 'text-slate-200 hover:text-indigo-400'}`}
+                             >
+                               {sub.name}
+                             </button>
                              <div className="flex items-center gap-2 mt-0.5">
                                <span className="text-xs font-mono text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">{sub.username}</span>
                                <span className="text-[10px] text-slate-500 flex items-center gap-1"><Activity size={10}/> {sub.last_seen}</span>
@@ -620,16 +706,13 @@ const IptvManagerView = ({ subscriptions, onSendReminder, onAddSubscription, onN
                                     <RefreshCw size={14} /> Rinnova
                                   </button>
                                 </>
-                              ) : (
-                                <>
-                                  <button className="p-2 hover:bg-slate-700 rounded text-slate-400 hover:text-emerald-400 transition-colors" title="Dettagli">
-                                     <FileText size={16}/>
-                                  </button>
-                                  <button className="p-2 hover:bg-slate-700 rounded text-slate-400 hover:text-red-400 transition-colors" title="Gestisci / Blocca">
-                                     <Settings size={16}/>
-                                  </button>
-                                </>
-                              )}
+                              ) : null}
+                              <button onClick={() => onEditSubscription && onEditSubscription(sub)} className="p-2 hover:bg-slate-700 rounded text-slate-400 hover:text-blue-400 transition-colors" title="Modifica Abbonamento">
+                                 <Edit size={16}/>
+                              </button>
+                              <button onClick={() => onDeleteSubscription && onDeleteSubscription(sub.id)} className="p-2 hover:bg-slate-700 rounded text-slate-400 hover:text-red-400 transition-colors" title="Elimina Abbonamento">
+                                 <Trash2 size={16}/>
+                              </button>
                            </div>
                         </td>
                      </tr>
@@ -673,6 +756,18 @@ const ClientsLeadsView = ({
 }) => {
   const [viewMode, setViewMode] = useState('clients'); // 'clients' | 'leads'
   const [menuOpen, setMenuOpen] = useState(null);
+
+  // Chiudi il menu quando si clicca fuori
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuOpen && !event.target.closest('.menu-container')) {
+        setMenuOpen(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [menuOpen]);
 
   return (
     <div className="animate-fade-in space-y-6">
@@ -781,7 +876,7 @@ const ClientsLeadsView = ({
                             <MoreHorizontal size={18} />
                          </button>
                          {menuOpen === c.id && (
-                           <div className="absolute right-0 mt-2 w-48 bg-slate-800 border border-slate-700 rounded-lg shadow-lg z-10">
+                           <div className="menu-container absolute right-0 mt-2 w-48 bg-slate-800 border border-slate-700 rounded-lg shadow-lg z-50">
                              <button 
                                onClick={(e) => {
                                  e.stopPropagation();
@@ -2816,9 +2911,13 @@ export default function App() {
           username: iptvData.username,
           plan: iptvData.plan,
           status: 'active',
-          expireDate: iptvData.expireDate,
-          lastSeen: 'Now',
-          phone: iptvData.phone || ''
+          expire_date: iptvData.expireDate,
+          last_seen: 'Ora',
+          phone: iptvData.phone || '',
+          mac_address: iptvData.mac,
+          connections: iptvData.connections || 1,
+          price: price,
+          cost: price * 0.2 // 80% margin
         };
 
         const { data, error } = await supabase
@@ -2868,6 +2967,46 @@ export default function App() {
     } catch (err) {
       console.error('Error adding IPTV:', err);
       alert('Errore nell\'aggiunta dell\'IPTV: ' + err.message);
+    }
+  };
+
+  // Update subscription
+  const updateSubscription = async (id, updates) => {
+    try {
+      const { error } = await supabase
+        .from('subscriptions')
+        .update(updates)
+        .eq('id', id);
+
+      if (error) throw error;
+
+      // Update local state
+      setSubscriptions(prev => prev.map(sub =>
+        sub.id === id ? { ...sub, ...updates } : sub
+      ));
+    } catch (err) {
+      console.error('Error updating subscription:', err);
+      alert('Errore nell\'aggiornamento dell\'abbonamento: ' + err.message);
+    }
+  };
+
+  // Delete subscription
+  const deleteSubscription = async (id) => {
+    if (!confirm('Sei sicuro di voler eliminare questo abbonamento?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('subscriptions')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      // Update local state
+      setSubscriptions(prev => prev.filter(sub => sub.id !== id));
+    } catch (err) {
+      console.error('Error deleting subscription:', err);
+      alert('Errore nell\'eliminazione dell\'abbonamento: ' + err.message);
     }
   };
 
@@ -3148,6 +3287,29 @@ export default function App() {
     // eslint-disable-next-line no-restricted-globals
     if (confirm('Sei sicuro di voler eliminare questo cliente?')) {
       try {
+        // Prima elimina i record collegati nelle altre tabelle
+        const { error: accountingError } = await supabase
+          .from('accounting')
+          .delete()
+          .eq('client_id', clientId);
+
+        if (accountingError) {
+          console.error('Error deleting accounting records:', accountingError);
+          // Non bloccare se non riesce, potrebbe non esserci nulla da eliminare
+        }
+
+        // Elimina le subscriptions collegate
+        const { error: subsError } = await supabase
+          .from('subscriptions')
+          .delete()
+          .eq('client_id', clientId);
+
+        if (subsError) {
+          console.error('Error deleting subscriptions:', subsError);
+          // Non bloccare se non riesce
+        }
+
+        // Ora elimina il cliente
         const { error: clientError } = await supabase
           .from('clients')
           .delete()
@@ -3155,15 +3317,9 @@ export default function App() {
 
         if (clientError) throw clientError;
 
-        const { error: leadError } = await supabase
-          .from('leads')
-          .delete()
-          .eq('id', clientId);
-
-        if (leadError) throw leadError;
-
+        // Aggiorna lo stato locale
         setClients(prev => prev.filter(c => c.id !== clientId));
-        setLeads(prev => prev.filter(l => l.id !== clientId));
+        alert('Cliente eliminato con successo!');
       } catch (err) {
         console.error('Error deleting client:', err);
         alert('Errore nell\'eliminazione del cliente: ' + err.message);
@@ -3250,7 +3406,30 @@ export default function App() {
       case 'finance':
         return <FinanceCalculatorView clients={clients} subscriptions={subscriptions} />;
       case 'iptv':
-        return <IptvManagerView subscriptions={filteredSubscriptions} onSendReminder={handleSendReminder} onAddSubscription={() => setShowAddIptvModal(true)} onNotifySubscription={handleNotifySubscription} onRenewSubscription={handleRenewSubscription} />;
+        return <IptvManagerView
+          subscriptions={filteredSubscriptions}
+          onSendReminder={handleSendReminder}
+          onAddSubscription={() => setShowAddIptvModal(true)}
+          onNotifySubscription={handleNotifySubscription}
+          onRenewSubscription={handleRenewSubscription}
+          clients={clients}
+          onEditClient={(client) => {
+            setEditingClient(client);
+            setClientForm({...client});
+            setShowClientModal(true);
+          }}
+          onDeleteClient={deleteClient}
+          onContactWhatsApp={contactWhatsApp}
+          onViewClientDetail={(client) => { setSelectedClientDetail(client); setShowClientDetailModal(true); }}
+          onUpdateSubscription={updateSubscription}
+          onDeleteSubscription={deleteSubscription}
+          onEditSubscription={(sub) => {
+            const newExpireDate = prompt('Nuova data di scadenza (YYYY-MM-DD):', sub.expire_date);
+            if (newExpireDate && newExpireDate !== sub.expire_date) {
+              updateSubscription(sub.id, { expire_date: newExpireDate });
+            }
+          }}
+        />;
       case 'clients':
         return <ClientsLeadsView 
           onSelectClient={handleClientSelect} 
