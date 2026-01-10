@@ -450,6 +450,9 @@ const IptvManagerView = ({ subscriptions, onSendReminder, onAddSubscription, onN
     return sub.status === filterStatus;
   });
 
+  const expiredToday = subscriptions.filter(sub => sub.daysLeft === 0).length;
+  const expiringSoon = subscriptions.filter(sub => sub.daysLeft > 0 && sub.daysLeft <= 3).length;
+
   return (
     <div className="animate-fade-in space-y-6">
       {/* Header e Azioni Rapide */}
@@ -480,7 +483,7 @@ const IptvManagerView = ({ subscriptions, onSendReminder, onAddSubscription, onN
         >
           <div className="flex justify-between items-start mb-2">
             <div className="p-2 rounded-lg bg-red-500/20 text-red-400"><AlertCircle size={20}/></div>
-            <span className="text-2xl font-bold text-slate-100">1</span>
+            <span className="text-2xl font-bold text-slate-100">{expiredToday}</span>
           </div>
           <p className="text-sm font-medium text-slate-300">Scaduti Oggi</p>
           <p className="text-xs text-red-400 mt-1">Azione immediata richiesta</p>
@@ -492,7 +495,7 @@ const IptvManagerView = ({ subscriptions, onSendReminder, onAddSubscription, onN
         >
           <div className="flex justify-between items-start mb-2">
             <div className="p-2 rounded-lg bg-yellow-500/20 text-yellow-400"><Clock3 size={20}/></div>
-            <span className="text-2xl font-bold text-slate-100">2</span>
+            <span className="text-2xl font-bold text-slate-100">{expiringSoon}</span>
           </div>
           <p className="text-sm font-medium text-slate-300">In Scadenza (3gg)</p>
           <p className="text-xs text-yellow-400 mt-1">Invia preventivi rinnovo</p>
@@ -1630,11 +1633,11 @@ const FinanceCalculatorView = ({ clients, subscriptions }) => {
   );
 };
 
-const DashboardView = ({ onSelectClient, clients, onBotAction }) => (
+const DashboardView = ({ onSelectClient, clients, onBotAction, stats }) => (
   <div className="space-y-6 animate-fade-in">
     {/* Header Stats */}
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-      {MOCK_STATS.map((stat, idx) => (
+      {stats.map((stat, idx) => (
         <div key={idx} className="p-5 border shadow-sm bg-slate-800 border-slate-700 rounded-xl">
           <div className="flex items-center justify-between mb-4">
             <span className="text-sm font-medium text-slate-400">{stat.label}</span>
@@ -2157,7 +2160,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [clients, setClients] = useState([]);
   const [leads, setLeads] = useState([]);
-  const [showClientModal, setShowClientModal] = useState(false);
+  const [stats, setStats] = useState([]);
   const [showClientDetailModal, setShowClientDetailModal] = useState(false);
   const [selectedClientDetail, setSelectedClientDetail] = useState(null);
   const [editingClient, setEditingClient] = useState(null);
@@ -2229,6 +2232,49 @@ export default function App() {
       const { data: subsData, error: subsError } = await supabase.from('subscriptions').select('*');
       if (subsError) throw subsError;
       setSubscriptions(subsData || []);
+
+      // Fetch dashboard stats
+      const { data: statsData, error: statsError } = await supabase.from('dashboard_stats').select('*');
+      if (statsError) throw statsError;
+      if (statsData) {
+        const mappedStats = statsData.map(item => {
+          let icon, color, label;
+          switch (item.metric) {
+            case 'total_clients':
+              icon = Users;
+              color = 'text-blue-500';
+              label = 'Totale Clienti';
+              break;
+            case 'active_subscriptions':
+              icon = Tv;
+              color = 'text-violet-500';
+              label = 'Linee IPTV Attive';
+              break;
+            case 'monthly_revenue':
+              icon = Euro;
+              color = 'text-emerald-500';
+              label = 'Fatturato Mese';
+              break;
+            case 'expiring_soon':
+              icon = MessageSquare;
+              color = 'text-orange-500';
+              label = 'Ticket Aperti';
+              break;
+            default:
+              icon = Users;
+              color = 'text-slate-500';
+              label = item.metric.replace('_', ' ').toUpperCase();
+          }
+          return {
+            label,
+            value: item.value.toString(),
+            change: '+0%',
+            icon,
+            color
+          };
+        });
+        setStats(mappedStats);
+      }
     } catch (error) {
       console.error('Error fetching data from Supabase:', error);
       // Fallback to mock data if Supabase fails
@@ -2266,6 +2312,48 @@ export default function App() {
       if (Array.isArray(clientsData)) setClients(clientsData);
       if (Array.isArray(subsData)) setSubscriptions(subsData);
       if (Array.isArray(leadsData)) setLeads(leadsData);
+
+      // Fetch dashboard stats
+      const { data: statsData, error: statsError } = await supabase.from('dashboard_stats').select('*');
+      if (!statsError && statsData) {
+        const mappedStats = statsData.map(item => {
+          let icon, color, label;
+          switch (item.metric) {
+            case 'total_clients':
+              icon = Users;
+              color = 'text-blue-500';
+              label = 'Totale Clienti';
+              break;
+            case 'active_subscriptions':
+              icon = Tv;
+              color = 'text-violet-500';
+              label = 'Linee IPTV Attive';
+              break;
+            case 'monthly_revenue':
+              icon = Euro;
+              color = 'text-emerald-500';
+              label = 'Fatturato Mese';
+              break;
+            case 'expiring_soon':
+              icon = MessageSquare;
+              color = 'text-orange-500';
+              label = 'Ticket Aperti';
+              break;
+            default:
+              icon = Users;
+              color = 'text-slate-500';
+              label = item.metric.replace('_', ' ').toUpperCase();
+          }
+          return {
+            label,
+            value: item.value.toString(),
+            change: '+0%',
+            icon,
+            color
+          };
+        });
+        setStats(mappedStats);
+      }
 
       setLastSync(new Date().toISOString());
     } catch (err) {
@@ -2382,25 +2470,24 @@ export default function App() {
       } else {
         // Create new subscription
         const newSub = {
-          id: Date.now(),
           name: iptvData.ownerName || `User-${Date.now().toString().slice(-3)}`,
           username: iptvData.username,
           plan: iptvData.plan,
           status: 'active',
           expireDate: iptvData.expireDate,
-          daysLeft: Math.ceil((new Date(iptvData.expireDate) - new Date()) / (24*60*60*1000)),
           lastSeen: 'Now',
           phone: iptvData.phone || ''
         };
 
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('subscriptions')
-          .insert([newSub]);
+          .insert([newSub])
+          .select();
 
         if (error) throw error;
 
         // Update local state
-        setSubscriptions(prev => [newSub, ...prev]);
+        setSubscriptions(prev => [data[0], ...prev]);
 
         // Salva transazione contabile per il nuovo abbonamento
         const transactionDate = new Date().toISOString().split('T')[0];
@@ -2817,7 +2904,7 @@ export default function App() {
 
     switch (currentView) {
       case 'dashboard':
-        return <DashboardView onSelectClient={handleClientSelect} clients={filteredClients} onBotAction={handleBotAction} />;
+        return <DashboardView onSelectClient={handleClientSelect} clients={filteredClients} onBotAction={handleBotAction} stats={stats} />;
       case 'finance':
         return <FinanceCalculatorView clients={clients} subscriptions={subscriptions} />;
       case 'iptv':
