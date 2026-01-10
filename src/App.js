@@ -2255,7 +2255,7 @@ export default function App() {
               color = 'text-emerald-500';
               label = 'Fatturato Mese';
               break;
-            case 'expiring_soon':
+            case 'total_leads':
               icon = MessageSquare;
               color = 'text-orange-500';
               label = 'Ticket Aperti';
@@ -2334,7 +2334,7 @@ export default function App() {
               color = 'text-emerald-500';
               label = 'Fatturato Mese';
               break;
-            case 'expiring_soon':
+            case 'total_leads':
               icon = MessageSquare;
               color = 'text-orange-500';
               label = 'Ticket Aperti';
