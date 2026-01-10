@@ -9,7 +9,6 @@ import {
   Search,
   Bell, 
   LogOut, 
-  MoreVertical, 
   Wifi, 
   AlertTriangle, 
   CheckCircle, 
@@ -21,7 +20,6 @@ import {
   Ban,
   Download,
   Calculator,
-  PieChart,
   DollarSign,
   Euro,
   Filter,
@@ -29,22 +27,16 @@ import {
   Columns,
   List,
   MoreHorizontal,
-  Phone,
   Mail,
   Clock,
   Server,
   Activity,
   Globe,
-  Signal,
-  PlayCircle,
-  StopCircle,
   Zap,
-  Calendar,
   AlertCircle,
   Clock3,
   Send,
   Shield,
-  Key,
   Smartphone,
   Palette,
   Save,
@@ -71,13 +63,6 @@ const MOCK_STATS = [
   { label: 'Linee IPTV Attive', value: '856', change: '+5%', icon: Tv, color: 'text-violet-500' },
   { label: 'Fatturato Mese', value: '€ 12.4k', change: '+8.2%', icon: Euro, color: 'text-emerald-500' },
   { label: 'Ticket Aperti', value: '12', change: '-2', icon: MessageSquare, color: 'text-orange-500' },
-];
-
-const MOCK_PRODUCTS = [
-  { id: 1, name: 'Abbonamento 1 Mese', price: 10, cost: 2, sold: 150 },
-  { id: 2, name: 'Abbonamento 3 Mesi', price: 25, cost: 5, sold: 45 },
-  { id: 3, name: 'Abbonamento 6 Mesi', price: 45, cost: 9, sold: 30 },
-  { id: 4, name: 'Abbonamento 12 Mesi', price: 80, cost: 16, sold: 85 },
 ];
 
 const MOCK_CLIENTS = [
@@ -673,7 +658,6 @@ const ClientsLeadsView = ({
   onUpdateLeadStatus
 }) => {
   const [viewMode, setViewMode] = useState('clients'); // 'clients' | 'leads'
-  const [filterType, setFilterType] = useState('all');
   const [menuOpen, setMenuOpen] = useState(null);
 
   return (
@@ -2227,7 +2211,6 @@ export default function App() {
   // Sync state
   const [syncing, setSyncing] = useState(false);
   const [lastSync, setLastSync] = useState(null);
-  const [syncError, setSyncError] = useState(null);
 
   const [showMassReminderModal, setShowMassReminderModal] = useState(false);
   const [showAddIptvModal, setShowAddIptvModal] = useState(false);
@@ -2263,7 +2246,6 @@ export default function App() {
   // Fetch data from Supabase (replaces external integration)
   const fetchExternalData = async () => {
     setSyncing(true);
-    setSyncError(null);
     try {
       const { data: clientsData, error: clientsError } = await supabase
         .from('clients')
@@ -2288,7 +2270,6 @@ export default function App() {
       setLastSync(new Date().toISOString());
     } catch (err) {
       console.error('Sync error:', err);
-      setSyncError(err.message || String(err));
       alert('Errore sincronizzazione: ' + (err.message || String(err)));
     } finally {
       setSyncing(false);
