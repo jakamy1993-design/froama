@@ -62,11 +62,32 @@ CREATE TABLE IF NOT EXISTS leads (
 );
 
 -- ============================================================================
--- 4. TABELLA ABBONAMENTI IPTV (Subscriptions)
+-- 4. TABELLA PIANI ABBONAMENTO (Subscription Plans)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS subscription_plans (
+  id BIGSERIAL PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE, -- Full 12 Mesi, Base 1 Mese, etc.
+  description TEXT,
+  category TEXT DEFAULT 'subscription' CHECK (category IN ('subscription', 'trial', 'commercial', 'addon')),
+  price DECIMAL(10,2) NOT NULL, -- prezzo di vendita
+  cost DECIMAL(10,2) NOT NULL, -- costo per il rivenditore
+  margin_percentage DECIMAL(5,2) DEFAULT 0, -- calcolato automaticamente
+  duration_months INTEGER NOT NULL, -- durata in mesi (0 per trial)
+  max_connections INTEGER DEFAULT 1,
+  features JSONB DEFAULT '{}', -- {sports: true, cinema: true, 4k: true, etc.}
+  is_active BOOLEAN DEFAULT true,
+  sort_order INTEGER DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- ============================================================================
+-- 5. TABELLA ABBONAMENTI IPTV (Subscriptions)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS subscriptions (
   id BIGSERIAL PRIMARY KEY,
   client_id BIGINT REFERENCES clients(id) ON DELETE CASCADE,
+  plan_id BIGINT REFERENCES subscription_plans(id) ON DELETE SET NULL, -- riferimento al piano
   name TEXT NOT NULL, -- nome del cliente
   username TEXT UNIQUE NOT NULL,
   plan TEXT NOT NULL, -- Full 12 Mesi, Base 1 Mese, Full Sport, Cinema 3 Mesi, Trial 24h, Commercial
@@ -87,7 +108,7 @@ CREATE TABLE IF NOT EXISTS subscriptions (
 );
 
 -- ============================================================================
--- 5. TABELLA CONTABILITÀ (Accounting)
+-- 6. TABELLA CONTABILITÀ (Accounting)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS accounting (
   id BIGSERIAL PRIMARY KEY,
@@ -109,7 +130,7 @@ CREATE TABLE IF NOT EXISTS accounting (
 );
 
 -- ============================================================================
--- 6. TABELLA MARGINI PRODOTTI (Product Margins)
+-- 7. TABELLA MARGINI PRODOTTI (Product Margins)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS product_margins (
   id BIGSERIAL PRIMARY KEY,
@@ -129,7 +150,7 @@ CREATE TABLE IF NOT EXISTS product_margins (
 );
 
 -- ============================================================================
--- 7. TABELLA AUTOMAZIONI (Automations)
+-- 8. TABELLA AUTOMAZIONI (Automations)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS automations (
   id BIGSERIAL PRIMARY KEY,
@@ -147,7 +168,7 @@ CREATE TABLE IF NOT EXISTS automations (
 );
 
 -- ============================================================================
--- 8. TABELLA LOG ATTIVITÀ (Activity Log)
+-- 9. TABELLA LOG ATTIVITÀ (Activity Log)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS activity_log (
   id BIGSERIAL PRIMARY KEY,
@@ -177,7 +198,12 @@ CREATE INDEX IF NOT EXISTS idx_leads_source ON leads(source);
 CREATE INDEX IF NOT EXISTS idx_leads_converted_client_id ON leads(converted_client_id);
 CREATE INDEX IF NOT EXISTS idx_leads_follow_up_date ON leads(follow_up_date);
 
+CREATE INDEX IF NOT EXISTS idx_subscription_plans_category ON subscription_plans(category);
+CREATE INDEX IF NOT EXISTS idx_subscription_plans_active ON subscription_plans(is_active);
+CREATE INDEX IF NOT EXISTS idx_subscription_plans_sort_order ON subscription_plans(sort_order);
+
 CREATE INDEX IF NOT EXISTS idx_subscriptions_client_id ON subscriptions(client_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_plan_id ON subscriptions(plan_id);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON subscriptions(status);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_expire_date ON subscriptions(expire_date);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_days_left ON subscriptions(days_left);
@@ -350,6 +376,20 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Funzione per aggiornare calcoli automatici dei piani abbonamento
+CREATE OR REPLACE FUNCTION update_subscription_plan_calculations()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Ricalcola margine
+  NEW.margin_percentage := CASE
+    WHEN NEW.price > 0 THEN ROUND(((NEW.price - NEW.cost) / NEW.price) * 100, 2)
+    ELSE 0
+  END;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 -- Funzione per loggare attività
 CREATE OR REPLACE FUNCTION log_activity()
 RETURNS TRIGGER AS $$
@@ -415,6 +455,11 @@ CREATE TRIGGER update_product_margin_calculations_trigger
   BEFORE INSERT OR UPDATE ON product_margins
   FOR EACH ROW EXECUTE FUNCTION update_product_margin_calculations();
 
+-- Trigger per calcoli automatici piani abbonamento
+CREATE TRIGGER update_subscription_plan_calculations_trigger
+  BEFORE INSERT OR UPDATE ON subscription_plans
+  FOR EACH ROW EXECUTE FUNCTION update_subscription_plan_calculations();
+
 -- Trigger per log attività (opzionali, commentare se non necessari)
 CREATE TRIGGER log_clients_activity
   AFTER INSERT OR UPDATE OR DELETE ON clients
@@ -422,6 +467,10 @@ CREATE TRIGGER log_clients_activity
 
 CREATE TRIGGER log_leads_activity
   AFTER INSERT OR UPDATE OR DELETE ON leads
+  FOR EACH ROW EXECUTE FUNCTION log_activity();
+
+CREATE TRIGGER log_subscription_plans_activity
+  AFTER INSERT OR UPDATE OR DELETE ON subscription_plans
   FOR EACH ROW EXECUTE FUNCTION log_activity();
 
 CREATE TRIGGER log_subscriptions_activity
@@ -434,6 +483,7 @@ CREATE TRIGGER log_subscriptions_activity
 ALTER TABLE settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
 ALTER TABLE leads ENABLE ROW LEVEL SECURITY;
+ALTER TABLE subscription_plans ENABLE ROW LEVEL SECURITY;
 ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE accounting ENABLE ROW LEVEL SECURITY;
 ALTER TABLE product_margins ENABLE ROW LEVEL SECURITY;
@@ -444,6 +494,7 @@ ALTER TABLE activity_log ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow all operations for authenticated users" ON settings FOR ALL USING (true);
 CREATE POLICY "Allow all operations for authenticated users" ON clients FOR ALL USING (true);
 CREATE POLICY "Allow all operations for authenticated users" ON leads FOR ALL USING (true);
+CREATE POLICY "Allow all operations for authenticated users" ON subscription_plans FOR ALL USING (true);
 CREATE POLICY "Allow all operations for authenticated users" ON subscriptions FOR ALL USING (true);
 CREATE POLICY "Allow all operations for authenticated users" ON accounting FOR ALL USING (true);
 CREATE POLICY "Allow all operations for authenticated users" ON product_margins FOR ALL USING (true);
@@ -483,14 +534,24 @@ INSERT INTO leads (name, email, phone, source, status, time, interest) VALUES
 ('Cesare Augusto', 'cesare.augusto@email.com', '+39 336 4567890', 'Instagram', 'negotiating', '5g fa', 'Full Package'),
 ('Cleopatra VII', 'cleopatra.vii@email.com', '+39 337 5678901', 'WhatsApp', 'new', '10m fa', 'Crypto Info');
 
+-- Piani abbonamento di esempio
+INSERT INTO subscription_plans (name, description, category, price, cost, margin_percentage, duration_months, max_connections, features, is_active, sort_order) VALUES
+('Trial 24h', 'Prova gratuita 24 ore', 'trial', 0.00, 0.00, 0.00, 0, 1, '{"sports": false, "cinema": false, "4k": false}', true, 1),
+('Base 1 Mese', 'Pacchetto base 1 mese', 'subscription', 10.00, 2.00, 80.00, 1, 1, '{"sports": false, "cinema": false, "4k": false}', true, 2),
+('Cinema 3 Mesi', 'Pacchetto Cinema 3 mesi', 'subscription', 25.00, 5.00, 80.00, 3, 1, '{"sports": false, "cinema": true, "4k": false}', true, 3),
+('Full Sport', 'Pacchetto Sport completo', 'subscription', 45.00, 9.00, 80.00, 1, 1, '{"sports": true, "cinema": false, "4k": false}', true, 4),
+('Full 12 Mesi', 'Pacchetto completo 12 mesi', 'subscription', 80.00, 16.00, 80.00, 12, 1, '{"sports": true, "cinema": true, "4k": false}', true, 5),
+('Full Sport + Cinema 4K', 'Pacchetto premium 4K', 'subscription', 120.00, 24.00, 80.00, 12, 2, '{"sports": true, "cinema": true, "4k": true}', true, 6),
+('Commercial', 'Licenza commerciale multi-connessione', 'commercial', 150.00, 30.00, 80.00, 12, 5, '{"sports": true, "cinema": true, "4k": true, "commercial": true}', true, 7);
+
 -- Abbonamenti di esempio
-INSERT INTO subscriptions (name, username, plan, status, expire_date, days_left, last_seen, phone, mac_address, connections, price, cost, margin_percentage) VALUES
-('Mario Rossi', 'mario_tv_88', 'Full 12 Mesi', 'expired', '2024-01-09', -1, '2 giorni fa', '+39 333 1234567', '00:1A:79:44:2B:11', 1, 80.00, 16.00, 80.00),
-('Luca Bianchi', 'lucatv_pro', 'Base 1 Mese', 'expiring', '2025-01-12', 1, 'Oggi', '+39 340 9876543', '11:2B:44:55:FF:AA', 2, 10.00, 2.00, 80.00),
-('Giuseppe Verdi', 'peppe_napoli', 'Full Sport', 'expiring', '2025-01-15', 3, 'Oggi', '+39 339 2345678', '22:3C:55:66:GG:BB', 1, 45.00, 9.00, 80.00),
-('Luigi Neri', 'gigio_88', 'Cinema 3 Mesi', 'active', '2025-02-28', 45, 'Ieri', '+39 341 3456789', '33:4D:66:77:HH:CC', 1, 25.00, 5.00, 80.00),
-('Test User 01', 'trial_x22', 'Trial 24h', 'trial', '2025-01-11', 0, '1 ora fa', '+39 342 4567890', '44:5E:77:88:II:DD', 1, 0.00, 0.00, 0.00),
-('Bar Sport', 'bar_sport_to', 'Commercial', 'active', '2025-08-01', 200, 'Ora', '+39 343 5678901', '55:6F:88:99:JJ:EE', 5, 150.00, 30.00, 80.00);
+INSERT INTO subscriptions (plan_id, name, username, plan, status, expire_date, days_left, last_seen, phone, mac_address, connections, price, cost, margin_percentage) VALUES
+(5, 'Mario Rossi', 'mario_tv_88', 'Full 12 Mesi', 'expired', '2024-01-09', -1, '2 giorni fa', '+39 333 1234567', '00:1A:79:44:2B:11', 1, 80.00, 16.00, 80.00),
+(2, 'Luca Bianchi', 'lucatv_pro', 'Base 1 Mese', 'expiring', '2025-01-12', 1, 'Oggi', '+39 340 9876543', '11:2B:44:55:FF:AA', 2, 10.00, 2.00, 80.00),
+(4, 'Giuseppe Verdi', 'peppe_napoli', 'Full Sport', 'expiring', '2025-01-15', 3, 'Oggi', '+39 339 2345678', '22:3C:55:66:GG:BB', 1, 45.00, 9.00, 80.00),
+(3, 'Luigi Neri', 'gigio_88', 'Cinema 3 Mesi', 'active', '2025-02-28', 45, 'Ieri', '+39 341 3456789', '33:4D:66:77:HH:CC', 1, 25.00, 5.00, 80.00),
+(1, 'Test User 01', 'trial_x22', 'Trial 24h', 'trial', '2025-01-11', 0, '1 ora fa', '+39 342 4567890', '44:5E:77:88:II:DD', 1, 0.00, 0.00, 0.00),
+(7, 'Bar Sport', 'bar_sport_to', 'Commercial', 'active', '2025-08-01', 200, 'Ora', '+39 343 5678901', '55:6F:88:99:JJ:EE', 5, 150.00, 30.00, 80.00);
 
 -- Automazioni di esempio
 INSERT INTO automations (name, type, trigger_condition, action_config, is_active) VALUES
