@@ -58,13 +58,6 @@ const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY || 'your-anon-
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // --- DATI MOCK (SIMULATI) ---
-const MOCK_STATS = [
-  { label: 'Totale Clienti', value: '1,240', change: '+12%', icon: Users, color: 'text-blue-500' },
-  { label: 'Linee IPTV Attive', value: '856', change: '+5%', icon: Tv, color: 'text-violet-500' },
-  { label: 'Fatturato Mese', value: '€ 12.4k', change: '+8.2%', icon: Euro, color: 'text-emerald-500' },
-  { label: 'Ticket Aperti', value: '12', change: '-2', icon: MessageSquare, color: 'text-orange-500' },
-];
-
 const MOCK_CLIENTS = [
   {
     id: 1,
@@ -2755,7 +2748,7 @@ export default function App() {
         const newLead = {
           id: clientForm.id,
           name: clientForm.name,
-          source: 'Manuale',
+          source: 'Other',
           status: 'new',
           time: 'Ora',
           interest: clientForm.iptv.username ? 'IPTV' : 'Cliente'
