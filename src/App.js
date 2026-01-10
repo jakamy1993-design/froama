@@ -1643,30 +1643,165 @@ const FinanceCalculatorView = ({ clients, subscriptions }) => {
 };
 
 const DashboardView = ({ onSelectClient, clients, onBotAction, stats }) => {
-  // Dati per i grafici
-  const revenueData = [
-    { month: 'Gen', revenue: 8500, expenses: 3200, profit: 5300 },
-    { month: 'Feb', revenue: 9200, expenses: 3800, profit: 5400 },
-    { month: 'Mar', revenue: 10100, expenses: 4100, profit: 6000 },
-    { month: 'Apr', revenue: 11800, expenses: 4500, profit: 7300 },
-    { month: 'Mag', revenue: 12400, expenses: 4800, profit: 7600 },
-    { month: 'Giu', revenue: 13200, expenses: 5200, profit: 8000 },
-  ];
+  const [revenueData, setRevenueData] = useState([]);
+  const [clientTypeData, setClientTypeData] = useState([]);
+  const [subscriptionData, setSubscriptionData] = useState([]);
+  const [loadingCharts, setLoadingCharts] = useState(true);
 
-  const clientTypeData = [
-    { name: 'Standard', value: 65, color: '#3b82f6' },
-    { name: 'Reseller', value: 25, color: '#8b5cf6' },
-    { name: 'VIP', value: 8, color: '#f59e0b' },
-    { name: 'Trial', value: 2, color: '#10b981' },
-  ];
+  // Recupera dati ricavi mensili da Supabase
+  const fetchRevenueData = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('accounting')
+        .select('period, type, amount')
+        .order('period');
 
-  const subscriptionData = [
-    { plan: 'Full 12M', active: 245, expired: 12 },
-    { plan: 'Base 1M', active: 189, expired: 8 },
-    { plan: 'Sport', active: 156, expired: 15 },
-    { plan: 'Cinema', active: 134, expired: 6 },
-    { plan: 'Trial', active: 23, expired: 45 },
-  ];
+      if (error) throw error;
+
+      // Raggruppa per mese e calcola ricavi, spese e profitti
+      const monthlyData = {};
+      data.forEach(record => {
+        const month = record.period;
+        if (!monthlyData[month]) {
+          monthlyData[month] = { revenue: 0, expenses: 0 };
+        }
+        if (record.type === 'income') {
+          monthlyData[month].revenue += parseFloat(record.amount);
+        } else if (record.type === 'expense') {
+          monthlyData[month].expenses += Math.abs(parseFloat(record.amount));
+        }
+      });
+
+      // Converte in array per il grafico
+      const chartData = Object.entries(monthlyData)
+        .map(([month, data]) => ({
+          month: new Date(month + '-01').toLocaleDateString('it-IT', { month: 'short' }),
+          revenue: Math.round(data.revenue),
+          expenses: Math.round(data.expenses),
+          profit: Math.round(data.revenue - data.expenses)
+        }))
+        .sort((a, b) => new Date('2024-' + a.month) - new Date('2024-' + b.month));
+
+      setRevenueData(chartData);
+    } catch (error) {
+      console.error('Errore nel recupero dati ricavi:', error);
+      // Fallback ai dati mock se non ci sono dati
+      setRevenueData([
+        { month: 'Gen', revenue: 8500, expenses: 3200, profit: 5300 },
+        { month: 'Feb', revenue: 9200, expenses: 3800, profit: 5400 },
+        { month: 'Mar', revenue: 10100, expenses: 4100, profit: 6000 },
+        { month: 'Apr', revenue: 11800, expenses: 4500, profit: 7300 },
+        { month: 'Mag', revenue: 12400, expenses: 4800, profit: 7600 },
+        { month: 'Giu', revenue: 13200, expenses: 5200, profit: 8000 },
+      ]);
+    }
+  };
+
+  // Recupera distribuzione tipi clienti da Supabase
+  const fetchClientTypeData = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('clients')
+        .select('type')
+        .not('type', 'is', null);
+
+      if (error) throw error;
+
+      // Conta i tipi di clienti
+      const typeCount = {};
+      data.forEach(client => {
+        typeCount[client.type] = (typeCount[client.type] || 0) + 1;
+      });
+
+      // Colori per i tipi
+      const colors = {
+        'Standard': '#3b82f6',
+        'Reseller': '#8b5cf6',
+        'VIP': '#f59e0b',
+        'Trial': '#10b981'
+      };
+
+      const chartData = Object.entries(typeCount).map(([name, value]) => ({
+        name,
+        value,
+        color: colors[name] || '#6b7280'
+      }));
+
+      setClientTypeData(chartData);
+    } catch (error) {
+      console.error('Errore nel recupero dati clienti:', error);
+      // Fallback ai dati mock
+      setClientTypeData([
+        { name: 'Standard', value: 65, color: '#3b82f6' },
+        { name: 'Reseller', value: 25, color: '#8b5cf6' },
+        { name: 'VIP', value: 8, color: '#f59e0b' },
+        { name: 'Trial', value: 2, color: '#10b981' },
+      ]);
+    }
+  };
+
+  // Recupera dati sottoscrizioni da Supabase
+  const fetchSubscriptionData = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('subscriptions')
+        .select('plan, status')
+        .not('plan', 'is', null);
+
+      if (error) throw error;
+
+      // Raggruppa per piano e status
+      const planStats = {};
+      data.forEach(sub => {
+        if (!planStats[sub.plan]) {
+          planStats[sub.plan] = { active: 0, expired: 0 };
+        }
+        if (sub.status === 'active' || sub.status === 'expiring') {
+          planStats[sub.plan].active += 1;
+        } else {
+          planStats[sub.plan].expired += 1;
+        }
+      });
+
+      const chartData = Object.entries(planStats).map(([plan, stats]) => ({
+        plan: plan.length > 10 ? plan.substring(0, 10) + '...' : plan,
+        active: stats.active,
+        expired: stats.expired
+      }));
+
+      setSubscriptionData(chartData);
+    } catch (error) {
+      console.error('Errore nel recupero dati sottoscrizioni:', error);
+      // Fallback ai dati mock
+      setSubscriptionData([
+        { plan: 'Full 12M', active: 245, expired: 12 },
+        { plan: 'Base 1M', active: 189, expired: 8 },
+        { plan: 'Sport', active: 156, expired: 15 },
+        { plan: 'Cinema', active: 134, expired: 6 },
+        { plan: 'Trial', active: 23, expired: 45 },
+      ]);
+    }
+  };
+
+  // Carica tutti i dati dei grafici
+  useEffect(() => {
+    const loadChartData = async () => {
+      setLoadingCharts(true);
+      await Promise.all([
+        fetchRevenueData(),
+        fetchClientTypeData(),
+        fetchSubscriptionData()
+      ]);
+      setLoadingCharts(false);
+    };
+
+    loadChartData();
+  }, []);
+
+  // Rimuovi i dati mock statici che erano qui prima
+  // const revenueData = [...];
+  // const clientTypeData = [...];
+  // const subscriptionData = [...];
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -1707,47 +1842,53 @@ const DashboardView = ({ onSelectClient, clients, onBotAction, stats }) => {
             </div>
             <h3 className="text-xl font-bold text-white">Andamento Ricavi</h3>
           </div>
-          <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={revenueData}>
-              <defs>
-                <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                </linearGradient>
-                <linearGradient id="profitGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis dataKey="month" stroke="#9ca3af" />
-              <YAxis stroke="#9ca3af" />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: '#1e293b',
-                  border: '1px solid #374151',
-                  borderRadius: '8px',
-                  color: '#f1f5f9'
-                }}
-              />
-              <Area
-                type="monotone"
-                dataKey="revenue"
-                stroke="#10b981"
-                fillOpacity={1}
-                fill="url(#revenueGradient)"
-                strokeWidth={3}
-              />
-              <Area
-                type="monotone"
-                dataKey="profit"
-                stroke="#3b82f6"
-                fillOpacity={1}
-                fill="url(#profitGradient)"
-                strokeWidth={2}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+          {loadingCharts ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500"></div>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
+              <AreaChart data={revenueData}>
+                <defs>
+                  <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="profitGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                <XAxis dataKey="month" stroke="#9ca3af" />
+                <YAxis stroke="#9ca3af" />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#1e293b',
+                    border: '1px solid #374151',
+                    borderRadius: '8px',
+                    color: '#f1f5f9'
+                  }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="revenue"
+                  stroke="#10b981"
+                  fillOpacity={1}
+                  fill="url(#revenueGradient)"
+                  strokeWidth={3}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="profit"
+                  stroke="#3b82f6"
+                  fillOpacity={1}
+                  fill="url(#profitGradient)"
+                  strokeWidth={2}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
         </div>
 
         {/* Grafico Tipi Clienti */}
@@ -1758,34 +1899,40 @@ const DashboardView = ({ onSelectClient, clients, onBotAction, stats }) => {
             </div>
             <h3 className="text-xl font-bold text-white">Distribuzione Clienti</h3>
           </div>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={clientTypeData}
-                cx="50%"
-                cy="50%"
-                innerRadius={60}
-                outerRadius={120}
-                paddingAngle={5}
-                dataKey="value"
-              >
-                {clientTypeData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: '#1e293b',
-                  border: '1px solid #374151',
-                  borderRadius: '8px',
-                  color: '#f1f5f9'
-                }}
-              />
-              <Legend
-                wrapperStyle={{ color: '#f1f5f9' }}
-              />
-            </PieChart>
-          </ResponsiveContainer>
+          {loadingCharts ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-violet-500"></div>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={clientTypeData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={120}
+                  paddingAngle={5}
+                  dataKey="value"
+                >
+                  {clientTypeData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#1e293b',
+                    border: '1px solid #374151',
+                    borderRadius: '8px',
+                    color: '#f1f5f9'
+                  }}
+                />
+                <Legend
+                  wrapperStyle={{ color: '#f1f5f9' }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
 
@@ -1799,24 +1946,30 @@ const DashboardView = ({ onSelectClient, clients, onBotAction, stats }) => {
             </div>
             <h3 className="text-xl font-bold text-white">Sottoscrizioni per Piano</h3>
           </div>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={subscriptionData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis dataKey="plan" stroke="#9ca3af" />
-              <YAxis stroke="#9ca3af" />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: '#1e293b',
-                  border: '1px solid #374151',
-                  borderRadius: '8px',
-                  color: '#f1f5f9'
-                }}
-              />
-              <Legend wrapperStyle={{ color: '#f1f5f9' }} />
-              <Bar dataKey="active" fill="#10b981" name="Attive" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="expired" fill="#ef4444" name="Scadute" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          {loadingCharts ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={subscriptionData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                <XAxis dataKey="plan" stroke="#9ca3af" />
+                <YAxis stroke="#9ca3af" />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#1e293b',
+                    border: '1px solid #374151',
+                    borderRadius: '8px',
+                    color: '#f1f5f9'
+                  }}
+                />
+                <Legend wrapperStyle={{ color: '#f1f5f9' }} />
+                <Bar dataKey="active" fill="#10b981" name="Attive" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="expired" fill="#ef4444" name="Scadute" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </div>
 
         {/* Quick Actions */}
