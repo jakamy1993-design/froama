@@ -411,6 +411,11 @@ const IptvManagerView = ({ subscriptions, onSendReminder, onAddSubscription, onN
   const [filterStatus, setFilterStatus] = useState('all'); // all, urgent, active, expired
   const [selectedSubs, setSelectedSubs] = useState(new Set());
   const [selectedClient, setSelectedClient] = useState(null);
+
+  // Debug: log when selectedClient changes
+  useEffect(() => {
+    console.log('selectedClient changed to:', selectedClient);
+  }, [selectedClient]);
   const toggleSelect = (id) => {
     setSelectedSubs(prev => {
       const copy = new Set(prev);
@@ -420,9 +425,12 @@ const IptvManagerView = ({ subscriptions, onSendReminder, onAddSubscription, onN
   };
 
   const selectClient = (clientName) => {
+    console.log('selectClient called with:', clientName);
     if (selectedClient === clientName) {
+      console.log('Deselecting client');
       setSelectedClient(null);
     } else {
+      console.log('Selecting client:', clientName);
       setSelectedClient(clientName);
     }
   };
@@ -554,7 +562,7 @@ const IptvManagerView = ({ subscriptions, onSendReminder, onAddSubscription, onN
       <div className="border bg-slate-800 border-slate-700 rounded-xl overflow-hidden shadow-lg">
 
          {/* Menu Cliente Selezionato */}
-         {selectedClient && (
+         {selectedClient ? (
            <div className="bg-indigo-600/10 border-b border-indigo-500/30 p-4">
              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                <div className="flex items-center gap-3">
@@ -569,6 +577,7 @@ const IptvManagerView = ({ subscriptions, onSendReminder, onAddSubscription, onN
                <div className="flex gap-2 flex-wrap">
                  <button
                    onClick={() => {
+                     alert(`Visualizza Dettagli clicked for: ${selectedClient}`);
                      const client = clients.find(c => c.name === selectedClient);
                      if (client && onViewClientDetail) onViewClientDetail(client);
                    }}
@@ -578,21 +587,26 @@ const IptvManagerView = ({ subscriptions, onSendReminder, onAddSubscription, onN
                  </button>
                  <button
                    onClick={() => {
+                     alert(`WhatsApp clicked for: ${selectedClient}`);
                      const client = clients.find(c => c.name === selectedClient);
-                    if (client && onContactWhatsApp) onContactWhatsApp(client);
+                     if (client && onContactWhatsApp) onContactWhatsApp(client);
                    }}
                    className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
                  >
                    <MessageSquare size={16} /> WhatsApp
                  </button>
                  <button
-                   onClick={() => onAddSubscription && onAddSubscription()}
+                   onClick={() => {
+                     alert('Nuovo Abbonamento clicked');
+                     if (onAddSubscription) onAddSubscription();
+                   }}
                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
                  >
                    <Plus size={16} /> Nuovo Abbonamento
                  </button>
                  <button
                    onClick={() => {
+                     alert(`Modifica Cliente clicked for: ${selectedClient}`);
                      const client = clients.find(c => c.name === selectedClient);
                      if (client && onEditClient) onEditClient(client);
                    }}
@@ -602,6 +616,7 @@ const IptvManagerView = ({ subscriptions, onSendReminder, onAddSubscription, onN
                  </button>
                  <button
                    onClick={() => {
+                     alert(`Elimina Cliente clicked for: ${selectedClient}`);
                      const client = clients.find(c => c.name === selectedClient);
                      if (client && onDeleteClient) onDeleteClient(client.id);
                    }}
@@ -610,13 +625,20 @@ const IptvManagerView = ({ subscriptions, onSendReminder, onAddSubscription, onN
                    <Trash2 size={16} /> Elimina Cliente
                  </button>
                  <button
-                   onClick={() => setSelectedClient(null)}
+                   onClick={() => {
+                     alert('Deseleziona clicked');
+                     setSelectedClient(null);
+                   }}
                    className="flex items-center gap-2 px-4 py-2 bg-slate-600 hover:bg-slate-500 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
                  >
                    <X size={16} /> Deseleziona
                  </button>
                </div>
              </div>
+           </div>
+         ) : (
+           <div className="bg-yellow-600/10 border-b border-yellow-500/30 p-4">
+             <p className="text-yellow-200 text-sm">Nessun cliente selezionato. Clicca su un nome cliente nella tabella sottostante per visualizzare il menu delle azioni.</p>
            </div>
          )}
 
