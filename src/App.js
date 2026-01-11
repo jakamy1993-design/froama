@@ -3560,6 +3560,7 @@ export default function App() {
   const [whatsAppContact, setWhatsAppContact] = useState(null);
   const [whatsAppContext, setWhatsAppContext] = useState('general');
   const [showLeadModal, setShowLeadModal] = useState(false);
+  const [editingLead, setEditingLead] = useState(null);
   const [leadForm, setLeadForm] = useState({
     name: '',
     email: '',
@@ -4292,49 +4293,52 @@ export default function App() {
     window.open(`https://wa.me/${phoneNumber}`, '_blank');
   };
 
-  const convertLeadToClient = (lead) => {
-    // Prima invia il messaggio WhatsApp di conversione
-    openWhatsAppModal(lead, 'convert_client');
-
-    // Crea un nuovo cliente basato sul lead
-    const newClient = {
-      id: Date.now(), // ID univoco
-      name: lead.name,
-      email: lead.email || `${lead.name.toLowerCase().replace(/\s+/g, '.')}@email.com`, // Usa email esistente o placeholder
-      phone: lead.phone || '+39 333 1234567', // Usa telefono esistente o placeholder
-      avatar: lead.name.split(' ').map(n => n[0]).join('').toUpperCase(),
-      status: 'active',
-      type: lead.interest.includes('Reseller') ? 'Reseller' : 'Standard',
-      iptv: lead.interest.includes('IPTV') ? {
-        username: `${lead.name.toLowerCase().replace(/\s+/g, '_')}_${Date.now().toString().slice(-3)}`,
-        expireDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 1 anno da oggi
+  const convertLeadToClient = async (lead) => {
+    try {
+      // Crea un nuovo cliente basato sul lead
+      const newClient = {
+        name: lead.name,
+        email: lead.email || `${lead.name.toLowerCase().replace(/\s+/g, '.')}@email.com`,
+        phone: lead.phone || '',
+        avatar: lead.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2),
         status: 'active',
-        mac: '00:1A:79:44:2B:11',
-        plan: lead.interest,
-        connections: 1,
-        lastIp: '87.12.33.11 (Milano, IT)'
-      } : null,
-      payments: [],
-      notes: `Convertito da lead - Fonte: ${lead.source}, Interesse: ${lead.interest}`
-    };
+        type: lead.interest?.includes('Reseller') ? 'Reseller' : 'Standard',
+        notes: `Convertito da lead - Fonte: ${lead.source}, Interesse: ${lead.interest}`
+      };
 
-    // Aggiungi il nuovo cliente
-    setClients(prev => [...prev, newClient]);
+      // Salva il nuovo cliente su Supabase
+      const { data: createdClient, error: clientError } = await supabase
+        .from('clients')
+        .insert([newClient])
+        .select()
+        .single();
 
-    // Rimuovi il lead dalla lista
-    setLeads(prev => prev.filter(l => l.id !== lead.id));
+      if (clientError) throw clientError;
 
-    // Passa automaticamente alla vista IPTV Manager se il cliente ha un abbonamento IPTV
-    if (newClient.iptv) {
-      setTimeout(() => {
-        setCurrentView('iptv');
-        // Seleziona automaticamente il cliente appena creato
-        setSelectedClient(newClient.name);
-      }, 1000); // Piccolo delay per permettere all'utente di vedere il messaggio WhatsApp
+      // Aggiorna il lead come convertito
+      const { error: leadError } = await supabase
+        .from('leads')
+        .update({ 
+          status: 'converted',
+          converted_client_id: createdClient.id,
+          converted_at: new Date().toISOString()
+        })
+        .eq('id', lead.id);
+
+      if (leadError) throw leadError;
+
+      // Aggiorna stato locale
+      setClients(prev => [...prev, createdClient]);
+      setLeads(prev => prev.filter(l => l.id !== lead.id));
+
+      // Invia messaggio WhatsApp di benvenuto
+      setTimeout(() => openWhatsAppModal(createdClient, 'welcome'), 500);
+
+      alert(`Lead "${lead.name}" convertito in cliente con successo!`);
+    } catch (err) {
+      console.error('Error converting lead to client:', err);
+      alert('Errore nella conversione: ' + err.message);
     }
-
-    // Mostra un messaggio di conferma
-    alert(`Lead "${lead.name}" convertito in cliente! Verrà inviato un messaggio WhatsApp con le informazioni sui prezzi.`);
   };
 
   const updateLeadStatus = async (leadId, newStatus) => {
@@ -4360,6 +4364,9 @@ export default function App() {
         } else if (newStatus === 'negotiating') {
           // Quando passa a trattativa, invia messaggio di follow-up
           setTimeout(() => openWhatsAppModal(lead, 'follow_up'), 500);
+        } else if (newStatus === 'converted') {
+          // Auto-converti il lead in cliente quando raggiunge stato converted
+          setTimeout(() => convertLeadToClient(lead), 1000);
         }
       }
     } catch (err) {
@@ -4421,6 +4428,7 @@ export default function App() {
   };
 
   const editLead = (lead) => {
+    setEditingLead(lead);
     setLeadForm({
       name: lead.name,
       email: lead.email || '',
@@ -4430,8 +4438,56 @@ export default function App() {
       notes: lead.notes || ''
     });
     setShowLeadModal(true);
-    // Qui dovrei salvare l'ID del lead da modificare
-    // Per ora creo un nuovo lead, ma in futuro dovrei aggiornare quello esistente
+  };
+
+  const saveLead = async () => {
+    try {
+      if (editingLead) {
+        // Aggiorna lead esistente
+        const { error } = await supabase
+          .from('leads')
+          .update(leadForm)
+          .eq('id', editingLead.id);
+
+        if (error) throw error;
+
+        setLeads(prev => prev.map(l => l.id === editingLead.id ? { ...l, ...leadForm } : l));
+        alert('Lead aggiornato con successo!');
+      } else {
+        // Crea nuovo lead
+        const newLead = {
+          ...leadForm,
+          status: 'new',
+          created_at: new Date().toISOString()
+        };
+
+        const { data, error } = await supabase
+          .from('leads')
+          .insert([newLead])
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        setLeads(prev => [...prev, data]);
+        alert('Contatto creato con successo!');
+      }
+
+      // Reset form
+      setLeadForm({
+        name: '',
+        email: '',
+        phone: '',
+        source: 'Manuale',
+        interest: 'IPTV',
+        notes: ''
+      });
+      setEditingLead(null);
+      setShowLeadModal(false);
+    } catch (err) {
+      console.error('Error saving lead:', err);
+      alert('Errore nel salvataggio: ' + err.message);
+    }
   };
 
   const deleteLead = async (leadId) => {
@@ -4683,6 +4739,7 @@ export default function App() {
         isOpen={showLeadModal}
         onClose={() => {
           setShowLeadModal(false);
+          setEditingLead(null);
           setLeadForm({
             name: '',
             email: '',
@@ -4693,7 +4750,7 @@ export default function App() {
           });
         }}
         onSave={saveLead}
-        lead={null}
+        lead={editingLead}
         formData={leadForm}
         onFormChange={setLeadForm}
       />
