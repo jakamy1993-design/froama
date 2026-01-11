@@ -3000,6 +3000,13 @@ export default function App() {
       if (subsError) throw subsError;
       setSubscriptions(subsData || []);
 
+      const { data: plansData, error: plansError } = await supabase
+        .from('subscription_plans')
+        .select('*')
+        .order('name');
+      if (plansError) throw plansError;
+      setSubscriptionPlans(plansData || []);
+
       // Fetch dashboard stats
       const { data: statsData, error: statsError } = await supabase.from('dashboard_stats').select('*');
       if (statsError) throw statsError;
@@ -3243,6 +3250,12 @@ export default function App() {
         ));
       } else {
         // Create new subscription
+        // Calcola il prezzo basato sul piano
+        let price = 10; // default
+        if (iptvData.plan?.includes('12 Mesi')) price = 80;
+        else if (iptvData.plan?.includes('6 Mesi')) price = 45;
+        else if (iptvData.plan?.includes('3 Mesi')) price = 25;
+
         const newSub = {
           name: iptvData.ownerName || `User-${Date.now().toString().slice(-3)}`,
           username: iptvData.username,
@@ -3270,12 +3283,6 @@ export default function App() {
         // Salva transazione contabile per il nuovo abbonamento
         const transactionDate = new Date().toISOString().split('T')[0];
         const period = transactionDate.substring(0, 7);
-
-        // Calcola il prezzo basato sul piano
-        let price = 10; // default
-        if (iptvData.plan?.includes('12 Mesi')) price = 80;
-        else if (iptvData.plan?.includes('6 Mesi')) price = 45;
-        else if (iptvData.plan?.includes('3 Mesi')) price = 25;
 
         const accountingRecord = {
           id: Date.now(),
@@ -3819,7 +3826,6 @@ export default function App() {
           <p className="px-4 mb-2 mt-6 text-xs font-semibold uppercase text-slate-500 tracking-wider">Gestione</p>
           <SidebarItem icon={Tv} label="IPTV Manager" active={currentView === 'iptv'} onClick={() => setCurrentView('iptv')} />
           <SidebarItem icon={DollarSign} label="Contabilità" active={currentView === 'finance'} onClick={() => setCurrentView('finance')} />
-          <SidebarItem icon={Bot} label="Automazioni" onClick={() => setCurrentView('automation')} />
 
           <p className="px-4 mb-2 mt-6 text-xs font-semibold uppercase text-slate-500 tracking-wider">System</p>
           <SidebarItem icon={Settings} label="Impostazioni" active={currentView === 'settings'} onClick={() => setCurrentView('settings')} />
