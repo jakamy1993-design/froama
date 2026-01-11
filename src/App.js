@@ -1394,14 +1394,19 @@ const ClientDetailModal = ({ isOpen, onClose, client, onEdit }) => {
 
 // --- NUOVA VISTA CALCOLO FINANZA (Rifatta come richiesto) ---
 
-const FinanceCalculatorView = ({ clients, subscriptions }) => {
+const FinanceCalculatorView = ({ 
+  clients, 
+  subscriptions, 
+  subscriptionPlans, 
+  onOpenPlanModal,
+  onDeletePlan
+}) => {
   const [calcPrice, setCalcPrice] = useState(10);
   const [calcCost, setCalcCost] = useState(2);
   const [accountingData, setAccountingData] = useState([]);
   const [productMargins, setProductMargins] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedPeriod, setSelectedPeriod] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
-
   // Calcola statistiche automaticamente dai dati esistenti
   const calculateStats = () => {
     const currentMonth = selectedPeriod;
@@ -1544,6 +1549,8 @@ const FinanceCalculatorView = ({ clients, subscriptions }) => {
   const profit = calcPrice - calcCost;
   const margin = calcPrice > 0 ? ((profit / calcPrice) * 100).toFixed(1) : 0;
   const stats = calculateStats();
+
+  
 
   return (
     <div className="animate-fade-in space-y-6">
@@ -1698,6 +1705,76 @@ const FinanceCalculatorView = ({ clients, subscriptions }) => {
                 </table>
             </div>
           )}
+      </div>
+
+      {/* Gestione Piani Abbonamento */}
+      <div className="p-6 border bg-slate-800 border-slate-700 rounded-xl">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold text-slate-100">Gestione Piani Abbonamento</h3>
+            <button
+              onClick={() => onOpenPlanModal()}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+            >
+              <Plus size={16} />
+              Nuovo Piano
+            </button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="text-xs uppercase border-b border-slate-700 text-slate-400">
+                  <th className="pb-3 pl-2">Nome Piano</th>
+                  <th className="pb-3">Categoria</th>
+                  <th className="pb-3 text-right">Prezzo</th>
+                  <th className="pb-3 text-right">Costo</th>
+                  <th className="pb-3 text-right">Margine</th>
+                  <th className="pb-3 text-center">Stato</th>
+                  <th className="pb-3 text-center">Azioni</th>
+                </tr>
+              </thead>
+              <tbody className="text-sm">
+                {subscriptionPlans.length > 0 ? subscriptionPlans.map(plan => {
+                  const margin = plan.price > 0 ? (((plan.price - plan.cost) / plan.price) * 100).toFixed(1) : 0;
+                  return (
+                    <tr key={plan.id} className="border-b border-slate-700/50 last:border-0 hover:bg-slate-700/30 transition-colors">
+                      <td className="py-3 pl-2 font-medium text-slate-200">{plan.name}</td>
+                      <td className="py-3 text-slate-300 capitalize">{plan.category}</td>
+                      <td className="py-3 text-right text-slate-300">€ {plan.price.toFixed(2)}</td>
+                      <td className="py-3 text-right text-red-300/80">€ {plan.cost.toFixed(2)}</td>
+                      <td className="py-3 text-right font-bold text-emerald-400">{margin}%</td>
+                      <td className="py-3 text-center">
+                        <Badge color={plan.is_active ? 'green' : 'red'}>
+                          {plan.is_active ? 'Attivo' : 'Disattivo'}
+                        </Badge>
+                      </td>
+                      <td className="py-3 text-center">
+                        <div className="flex gap-2 justify-center">
+                          <button
+                            onClick={() => onOpenPlanModal(plan)}
+                            className="px-2 py-1 text-xs font-medium text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 rounded transition-all duration-200"
+                          >
+                            Modifica
+                          </button>
+                          <button
+                            onClick={() => onDeletePlan(plan.id)}
+                            className="px-2 py-1 text-xs font-medium text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 rounded transition-all duration-200"
+                          >
+                            Elimina
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                }) : (
+                  <tr>
+                    <td colSpan="7" className="py-8 text-center text-slate-400">
+                      Nessun piano abbonamento trovato. Clicca "Nuovo Piano" per creare il primo piano.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
       </div>
 
       {/* Transazioni Recenti */}
@@ -2153,6 +2230,158 @@ const DashboardView = ({ onSelectClient, clients, onBotAction, stats }) => {
             </tbody>
           </table>
         </div>
+      </div>
+
+    </div>
+  );
+};
+
+// --- MODAL GESTIONE PIANI ABBONAMENTO ---
+const PlanModal = ({ isOpen, onClose, onSave, plan, formData, onFormChange }) => {
+  if (!isOpen) return null;
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSave();
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-slate-800 border border-slate-700 rounded-lg p-6 w-full max-w-2xl">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <DollarSign size={24} className="text-indigo-400" />
+            {plan ? 'Modifica Piano' : 'Nuovo Piano Abbonamento'}
+          </h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-white">
+            <X size={24} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Nome Piano *</label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => onFormChange({ ...formData, name: e.target.value })}
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-indigo-500"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Categoria</label>
+              <select
+                value={formData.category}
+                onChange={(e) => onFormChange({ ...formData, category: e.target.value })}
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-indigo-500"
+              >
+                <option value="subscription">Abbonamento</option>
+                <option value="trial">Prova</option>
+                <option value="commercial">Commerciale</option>
+                <option value="addon">Addon</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Descrizione</label>
+            <textarea
+              value={formData.description}
+              onChange={(e) => onFormChange({ ...formData, description: e.target.value })}
+              rows={2}
+              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-indigo-500 resize-none"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Prezzo (€) *</label>
+              <input
+                type="number"
+                step="0.01"
+                value={formData.price}
+                onChange={(e) => onFormChange({ ...formData, price: parseFloat(e.target.value) || 0 })}
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-indigo-500"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Costo (€) *</label>
+              <input
+                type="number"
+                step="0.01"
+                value={formData.cost}
+                onChange={(e) => onFormChange({ ...formData, cost: parseFloat(e.target.value) || 0 })}
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-indigo-500"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Margine (%)</label>
+              <input
+                type="text"
+                value={formData.price > 0 ? (((formData.price - formData.cost) / formData.price) * 100).toFixed(1) + '%' : '0%'}
+                readOnly
+                className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded-lg text-slate-300 cursor-not-allowed"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Durata (mesi) *</label>
+              <input
+                type="number"
+                min="0"
+                value={formData.duration_months}
+                onChange={(e) => onFormChange({ ...formData, duration_months: parseInt(e.target.value) || 0 })}
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-indigo-500"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Connessioni Max *</label>
+              <input
+                type="number"
+                min="1"
+                value={formData.max_connections}
+                onChange={(e) => onFormChange({ ...formData, max_connections: parseInt(e.target.value) || 1 })}
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-indigo-500"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-2 text-sm text-slate-300">
+              <input
+                type="checkbox"
+                checked={formData.is_active}
+                onChange={(e) => onFormChange({ ...formData, is_active: e.target.checked })}
+                className="rounded border-slate-600 text-indigo-600 focus:ring-indigo-500"
+              />
+              Piano Attivo
+            </label>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-700">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-slate-300 border border-slate-600 rounded-lg hover:bg-slate-700 transition-colors"
+            >
+              Annulla
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors"
+            >
+              {plan ? 'Aggiorna Piano' : 'Crea Piano'}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
@@ -2647,6 +2876,9 @@ export default function App() {
   // Subscriptions state (replaces usage of MOCK_SUBSCRIPTIONS for live sync)
   const [subscriptions, setSubscriptions] = useState([]);
 
+  // Subscription plans state
+  const [subscriptionPlans, setSubscriptionPlans] = useState([]);
+
   // Sync state
   const [syncing, setSyncing] = useState(false);
   const [lastSync, setLastSync] = useState(null);
@@ -2654,6 +2886,104 @@ export default function App() {
   const [showMassReminderModal, setShowMassReminderModal] = useState(false);
   const [showAddIptvModal, setShowAddIptvModal] = useState(false);
   const [showClientModal, setShowClientModal] = useState(false);
+  // Plan modal state (single source of truth for plan CRUD)
+  const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
+  const [editingPlan, setEditingPlan] = useState(null);
+  const [planFormData, setPlanFormData] = useState({
+    name: '',
+    category: 'subscription',
+    description: '',
+    price: 0,
+    cost: 0,
+    duration_months: 1,
+    max_connections: 1,
+    is_active: true
+  });
+
+  const openPlanModal = (plan = null) => {
+    if (plan) {
+      setEditingPlan(plan);
+      setPlanFormData({
+        name: plan.name || '',
+        category: plan.category || 'subscription',
+        description: plan.description || '',
+        price: plan.price || 0,
+        cost: plan.cost || 0,
+        duration_months: plan.duration_months || 1,
+        max_connections: plan.max_connections || 1,
+        is_active: typeof plan.is_active === 'boolean' ? plan.is_active : true
+      });
+    } else {
+      setEditingPlan(null);
+      setPlanFormData({
+        name: '',
+        category: 'subscription',
+        description: '',
+        price: 0,
+        cost: 0,
+        duration_months: 1,
+        max_connections: 1,
+        is_active: true
+      });
+    }
+    setIsPlanModalOpen(true);
+  };
+
+  const closePlanModal = () => {
+    setIsPlanModalOpen(false);
+    setEditingPlan(null);
+    setPlanFormData({
+      name: '',
+      category: 'subscription',
+      description: '',
+      price: 0,
+      cost: 0,
+      duration_months: 1,
+      max_connections: 1,
+      is_active: true
+    });
+  };
+
+  const handlePlanSave = async () => {
+    try {
+      if (editingPlan && editingPlan.id) {
+        const { data, error } = await supabase
+          .from('subscription_plans')
+          .update({ ...planFormData, updated_at: new Date() })
+          .eq('id', editingPlan.id)
+          .select();
+        if (error) throw error;
+        if (Array.isArray(data) && data.length) {
+          setSubscriptionPlans(prev => prev.map(p => (p.id === editingPlan.id ? data[0] : p)));
+        }
+      } else {
+        const { data, error } = await supabase
+          .from('subscription_plans')
+          .insert([{ ...planFormData }])
+          .select();
+        if (error) throw error;
+        if (Array.isArray(data) && data.length) {
+          setSubscriptionPlans(prev => [...prev, ...data]);
+        }
+      }
+      closePlanModal();
+    } catch (err) {
+      console.error('Error saving plan:', err);
+      window.alert('Errore durante il salvataggio del piano.');
+    }
+  };
+
+  const deleteSubscriptionPlan = async (id) => {
+    if (!window.confirm('Sei sicuro di voler eliminare questo piano?')) return;
+    try {
+      const { error } = await supabase.from('subscription_plans').delete().eq('id', id);
+      if (error) throw error;
+      setSubscriptionPlans(prev => prev.filter(p => p.id !== id));
+    } catch (err) {
+      console.error('Error deleting plan:', err);
+      window.alert('Errore durante l\'eliminazione del piano.');
+    }
+  };
 
   // Fetch data from Supabase
   const fetchSupabaseData = async () => {
@@ -2742,13 +3072,20 @@ export default function App() {
         .from('leads')
         .select('*');
 
+      const { data: plansData, error: plansError } = await supabase
+        .from('subscription_plans')
+        .select('*')
+        .order('name');
+
       if (clientsError) throw clientsError;
       if (subsError) throw subsError;
       if (leadsError) throw leadsError;
+      if (plansError) throw plansError;
 
       if (Array.isArray(clientsData)) setClients(clientsData);
       if (Array.isArray(subsData)) setSubscriptions(subsData);
       if (Array.isArray(leadsData)) setLeads(leadsData);
+      if (Array.isArray(plansData)) setSubscriptionPlans(plansData);
 
       // Fetch dashboard stats
       const { data: statsData, error: statsError } = await supabase.from('dashboard_stats').select('*');
@@ -2992,7 +3329,7 @@ export default function App() {
 
   // Delete subscription
   const deleteSubscription = async (id) => {
-    if (!confirm('Sei sicuro di voler eliminare questo abbonamento?')) return;
+    if (!window.confirm('Sei sicuro di voler eliminare questo abbonamento?')) return;
 
     try {
       const { error } = await supabase
@@ -3285,7 +3622,7 @@ export default function App() {
 
   const deleteClient = async (clientId) => {
     // eslint-disable-next-line no-restricted-globals
-    if (confirm('Sei sicuro di voler eliminare questo cliente?')) {
+    if (window.confirm('Sei sicuro di voler eliminare questo cliente?')) {
       try {
         // Prima elimina i record collegati nelle altre tabelle
         const { error: accountingError } = await supabase
@@ -3404,7 +3741,13 @@ export default function App() {
       case 'dashboard':
         return <DashboardView onSelectClient={handleClientSelect} clients={filteredClients} onBotAction={handleBotAction} stats={stats} />;
       case 'finance':
-        return <FinanceCalculatorView clients={clients} subscriptions={subscriptions} />;
+        return <FinanceCalculatorView 
+          clients={clients} 
+          subscriptions={subscriptions}
+          subscriptionPlans={subscriptionPlans}
+          onOpenPlanModal={openPlanModal}
+          onDeletePlan={deleteSubscriptionPlan}
+        />;
       case 'iptv':
         return <IptvManagerView
           subscriptions={filteredSubscriptions}
@@ -3577,6 +3920,15 @@ export default function App() {
       <MassReminderModal isOpen={showMassReminderModal} onClose={() => setShowMassReminderModal(false)} onConfirm={confirmMassReminder} defaultTarget="urgent" />
       {/* Global Add IPTV Modal (from IPTV Manager) */}
       <AddIptvModal isOpen={showAddIptvModal} onClose={() => setShowAddIptvModal(false)} onSave={addIptv} client={null} />
+      {/* Plan Management Modal (App-level) */}
+      <PlanModal
+        isOpen={isPlanModalOpen}
+        onClose={closePlanModal}
+        onSave={handlePlanSave}
+        plan={editingPlan}
+        formData={planFormData}
+        onFormChange={setPlanFormData}
+      />
 
     </div>
   );
