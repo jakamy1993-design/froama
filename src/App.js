@@ -1880,7 +1880,6 @@ const FinanceCalculatorView = ({
   const monthlyTrendData = Array.from({length: 6}, (_, i) => {
     const date = new Date();
     date.setMonth(date.getMonth() - (5 - i));
-    const monthKey = date.toISOString().slice(0, 7);
     const monthName = date.toLocaleDateString('it-IT', { month: 'short', year: '2-digit' });
     
     // Simula dati storici (in produzione verrebbero dal database)
@@ -2399,11 +2398,6 @@ const FinanceCalculatorView = ({
                           <button
                             onClick={() => {
                               if (window.confirm(`Duplicare il piano "${plan.name}"?`)) {
-                                const duplicatedPlan = {
-                                  ...plan,
-                                  id: Date.now(),
-                                  name: `${plan.name} (Copia)`
-                                };
                                 // Qui dovresti chiamare una funzione per salvare il piano duplicato
                                 alert('Funzionalità duplicazione in sviluppo');
                               }
