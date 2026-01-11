@@ -4400,33 +4400,6 @@ export default function App() {
     setShowLeadModal(true);
   };
 
-  const saveLead = async (formData) => {
-    try {
-      const newLead = {
-        id: Date.now(),
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        source: formData.source,
-        status: 'new',
-        interest: formData.interest,
-        notes: formData.notes || ''
-      };
-
-      // Aggiungi alla lista leads locale
-      setLeads(prev => [...prev, newLead]);
-
-      // Salva su Supabase
-      const { error } = await supabase.from('leads').insert([newLead]);
-      if (error) throw error;
-
-      console.log('Lead creato con successo:', newLead);
-    } catch (err) {
-      console.error('Error creating lead:', err);
-      alert('Errore nella creazione del contatto: ' + err.message);
-    }
-  };
-
   const editLead = (lead) => {
     setEditingLead(lead);
     setLeadForm({
