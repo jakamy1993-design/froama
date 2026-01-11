@@ -534,7 +534,9 @@ export const ClientToolbar = ({
   const [activeModal, setActiveModal] = useState(null); // null, 'details', 'whatsapp', 'subscription', 'edit', 'delete'
 
   // Trova il cliente selezionato tra la lista
-  const client = clients?.find(c => c.name === selectedClient);
+  const client = typeof selectedClient === 'object'
+    ? selectedClient
+    : clients?.find(c => c.name === selectedClient);
 
   if (!selectedClient || !client) {
     return (

@@ -1768,15 +1768,8 @@ const FinanceCalculatorView = ({
       if (accountingError) throw accountingError;
       setAccountingData(accounting || []);
 
-      // Carica margini prodotti
-      const { data: margins, error: marginsError } = await supabase
-        .from('product_margins')
-        .select('*')
-        .eq('is_active', true)
-        .order('total_profit', { ascending: false });
-
-      if (marginsError) throw marginsError;
-      setProductMargins(margins || []);
+      // Margini prodotti non utilizzati (tabella non esistente)
+      setProductMargins([]);
 
     } catch (err) {
       console.error('Error loading accounting data:', err);
@@ -1834,10 +1827,16 @@ const FinanceCalculatorView = ({
         }
       ];
 
-      // Salva in Supabase
+      // Prima elimina i record esistenti per questo periodo
+      await supabase
+        .from('accounting')
+        .delete()
+        .eq('period', currentMonth);
+
+      // Poi inserisci i nuovi record
       const { error } = await supabase
         .from('accounting')
-        .upsert(accountingRecords, { onConflict: 'id' });
+        .insert(accountingRecords);
 
       if (error) throw error;
 
@@ -3837,71 +3836,6 @@ export default function App() {
   }, []);
 
   // Aggiorna i margini dei prodotti quando vengono venduti abbonamenti
-  const updateProductMargins = async (planName, sellingPrice) => {
-    try {
-      // Calcola il costo basato sul prezzo (margine 80%)
-      const costPrice = sellingPrice * 0.2; // 20% costo, 80% margine
-      const marginPercentage = 80.00;
-
-      // Cerca se il prodotto esiste già
-      const { data: existingProduct, error: searchError } = await supabase
-        .from('product_margins')
-        .select('*')
-        .eq('product_name', planName)
-        .eq('is_active', true)
-        .single();
-
-      if (searchError && searchError.code !== 'PGRST116') { // PGRST116 = not found
-        throw searchError;
-      }
-
-      if (existingProduct) {
-        // Aggiorna il prodotto esistente
-        const newTotalSold = existingProduct.total_sold + 1;
-        const newTotalRevenue = existingProduct.total_revenue + sellingPrice;
-        const newTotalCost = existingProduct.total_cost + costPrice;
-        const newTotalProfit = newTotalRevenue - newTotalCost;
-
-        const { error: updateError } = await supabase
-          .from('product_margins')
-          .update({
-            total_sold: newTotalSold,
-            total_revenue: newTotalRevenue,
-            total_cost: newTotalCost,
-            total_profit: newTotalProfit,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', existingProduct.id);
-
-        if (updateError) throw updateError;
-      } else {
-        // Crea un nuovo prodotto
-        const newProduct = {
-          id: Date.now(),
-          product_name: planName,
-          plan_type: 'subscription',
-          selling_price: sellingPrice,
-          cost_price: costPrice,
-          margin_percentage: marginPercentage,
-          total_sold: 1,
-          total_revenue: sellingPrice,
-          total_cost: costPrice,
-          total_profit: sellingPrice - costPrice,
-          is_active: true
-        };
-
-        const { error: insertError } = await supabase
-          .from('product_margins')
-          .insert([newProduct]);
-
-        if (insertError) throw insertError;
-      }
-    } catch (err) {
-      console.error('Error updating product margins:', err);
-      // Non bloccare l'operazione principale per errori sui margini
-    }
-  };
-
   // Add or attach iptv line to client or create subscription if no clientId
   const addIptv = async (clientId, iptvData) => {
     try {
@@ -3988,8 +3922,7 @@ export default function App() {
           // Non bloccare la creazione dell'abbonamento
         }
 
-        // Aggiorna i margini del prodotto
-        await updateProductMargins(iptvData.plan, price);
+        // Margini prodotto non gestiti (tabella non esistente)
       }
     } catch (err) {
       console.error('Error adding IPTV:', err);
@@ -4469,7 +4402,6 @@ export default function App() {
         phone: formData.phone,
         source: formData.source,
         status: 'new',
-        time: 'Ora',
         interest: formData.interest,
         notes: formData.notes || ''
       };
