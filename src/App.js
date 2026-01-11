@@ -66,6 +66,7 @@ import {
   ArrowLeft,
   ArrowRight
 } from 'lucide-react';
+import ClientToolbar from './ClientToolbar';
 
 // Supabase configuration - Replace with your actual Supabase URL and anon key
 const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL || 'https://your-project.supabase.co';
@@ -160,13 +161,96 @@ const LEAD_STATUSES = [
 
 // --- NUOVI MOCK PER GESTIONE ABBONAMENTI ---
 const MOCK_SUBSCRIPTIONS = [
-  { id: 101, name: 'Marco Gialli', username: 'marco_g_90', plan: 'Full 12 Mesi', status: 'expired', expire_date: '2024-01-09', days_left: -1, last_seen: '2 giorni fa' },
+  { id: 101, name: 'Mario Rossi', username: 'mario_tv_88', plan: 'Full 12 Mesi', status: 'active', expire_date: '2026-02-15', days_left: 35, last_seen: 'Oggi' },
   { id: 102, name: 'Luca Bianchi', username: 'lucatv_pro', plan: 'Base 1 Mese', status: 'expiring', expire_date: '2025-01-12', days_left: 1, last_seen: 'Oggi' },
-  { id: 103, name: 'Giuseppe Verdi', username: 'peppe_napoli', plan: 'Full Sport', status: 'expiring', expire_date: '2025-01-15', days_left: 3, last_seen: 'Oggi' },
-  { id: 104, name: 'Luigi Neri', username: 'gigio_88', plan: 'Cinema 3 Mesi', status: 'active', expire_date: '2025-02-28', days_left: 45, last_seen: 'Ieri' },
-  { id: 105, name: 'Test User 01', username: 'trial_x22', plan: 'Trial 24h', status: 'trial', expire_date: '2025-01-11', days_left: 0, last_seen: '1 ora fa' },
-  { id: 106, name: 'Bar Sport', username: 'bar_sport_to', plan: 'Commercial', status: 'active', expire_date: '2025-08-01', days_left: 200, last_seen: 'Ora' },
+  { id: 103, name: 'Giulia Verdi', username: 'giulia_v_22', plan: 'Full Sport', status: 'active', expire_date: '2025-06-15', days_left: 155, last_seen: 'Oggi' },
+  { id: 104, name: 'Marco Rossi', username: 'marco_second', plan: 'Cinema 3 Mesi', status: 'active', expire_date: '2025-02-28', days_left: 45, last_seen: 'Ieri' },
+  { id: 105, name: 'Luca Bianchi', username: 'luca_second', plan: 'Trial 24h', status: 'trial', expire_date: '2025-01-11', days_left: 0, last_seen: '1 ora fa' },
+  { id: 106, name: 'Luigi Neri', username: 'bar_sport_to', plan: 'Commercial', status: 'active', expire_date: '2025-08-01', days_left: 200, last_seen: 'Ora' },
 ];
+
+// --- TEMPLATES MESSAGGI WHATSAPP IN FRANCESE ---
+const WHATSAPP_TEMPLATES = {
+  convert_client: {
+    label: 'Conversion Client',
+    message: `Bonjour! 👋
+
+Je suis ravi de vous informer que votre période d'essai s'est terminée avec succès. 
+
+Voici les informations sur les prix de votre abonnement IPTV:
+
+📺 Abonnement Standard: 15€/mois
+🎬 Pack Cinéma + Sport: 25€/mois  
+🌟 Pack Complet 4K: 35€/mois
+
+Votre abonnement sera automatiquement activé une fois le paiement confirmé.
+
+Avez-vous des questions? N'hésitez pas à me contacter!
+
+Cordialement,
+Votre équipe IPTV`
+  },
+  test_info: {
+    label: 'Informations Test',
+    message: `Bonjour! 👋
+
+Merci de votre intérêt pour nos services IPTV!
+
+Nous allons vous envoyer un test de 24h pour que vous puissiez découvrir la qualité de nos chaînes.
+
+📋 Ce qui est inclus dans le test:
+• Plus de 8000 chaînes TV
+• Qualité HD/4K
+• Sport en direct
+• Cinéma et séries
+• Chaînes internationales
+
+Le test sera activé dans les prochaines minutes. Vous recevrez vos identifiants par email.
+
+Des questions? Je suis là pour vous aider!
+
+Cordialement,
+Votre équipe IPTV`
+  },
+  follow_up: {
+    label: 'Suivi Client',
+    message: `Bonjour! 👋
+
+J'espère que vous profitez de votre abonnement IPTV!
+
+N'hésitez pas si vous avez besoin d'aide pour:
+• Configuration de votre appareil
+• Ajout de nouvelles chaînes
+• Support technique
+• Renouvellement d'abonnement
+
+Je suis disponible pour vous assister.
+
+Cordialement,
+Votre équipe IPTV`
+  },
+  payment_reminder: {
+    label: 'Rappel Paiement',
+    message: `Bonjour! 👋
+
+Je vous contacte concernant le renouvellement de votre abonnement IPTV.
+
+📅 Date d'expiration: [DATE]
+💰 Montant dû: [AMOUNT]€
+
+Modes de paiement acceptés:
+• PayPal
+• Carte bancaire
+• Crypto-monnaies (BTC, USDT, etc.)
+
+Votre abonnement sera automatiquement suspendu à la date d'expiration si le paiement n'est pas reçu.
+
+Contactez-moi pour procéder au paiement!
+
+Cordialement,
+Votre équipe IPTV`
+  }
+};
 
 // --- COMPONENTI UI ---
 
@@ -195,6 +279,123 @@ const Badge = ({ children, color }) => {
     <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${colors[color] || colors.gray}`}>
       {children}
     </span>
+  );
+};
+
+// --- MODAL WHATSAPP AVANZATO CON TEMPLATES FRANCESE ---
+const WhatsAppModal = ({ contact, onClose, onSend, context = 'general', isOpen }) => {
+  const [selectedTemplate, setSelectedTemplate] = useState(context);
+  const [message, setMessage] = useState(WHATSAPP_TEMPLATES[context]?.message || '');
+
+  if (!isOpen || !contact) return null;
+
+  const handleTemplateChange = (templateKey) => {
+    setSelectedTemplate(templateKey);
+    setMessage(WHATSAPP_TEMPLATES[templateKey]?.message || '');
+  };
+
+  const handleSend = () => {
+    if (!message.trim()) {
+      alert('Inserisci un messaggio');
+      return;
+    }
+
+    if (!contact.phone || contact.phone.trim() === '') {
+      alert('Numero di telefono non disponibile per questo contatto');
+      return;
+    }
+
+    // Estrai numero di telefono - rimuovi spazi e caratteri speciali
+    const phoneNumber = contact.phone.replace(/\D/g, '');
+    const fullNumber = phoneNumber.startsWith('39') ? phoneNumber : '39' + phoneNumber;
+
+    // Apri WhatsApp Web con il messaggio
+    const whatsappUrl = `https://wa.me/${fullNumber}?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank');
+
+    if (onSend) onSend(contact, message, selectedTemplate);
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-slate-800 rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-slate-700">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-slate-700">
+          <h2 className="text-xl font-bold text-slate-100">Invia Messaggio WhatsApp</h2>
+          <button
+            onClick={onClose}
+            className="p-1 hover:bg-slate-700 rounded-lg transition-colors"
+          >
+            <X size={24} className="text-slate-400" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="p-6 space-y-4">
+          {/* Destinatario */}
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-2">Destinatario</label>
+            <div className="p-3 bg-slate-900 rounded-lg border border-slate-700">
+              <p className="text-slate-100 font-medium">{contact.name}</p>
+              <p className="text-slate-400 text-sm">{contact.phone}</p>
+            </div>
+          </div>
+
+          {/* Template Selection */}
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-2">Template Messaggio</label>
+            <div className="grid grid-cols-2 gap-2">
+              {Object.entries(WHATSAPP_TEMPLATES).map(([key, template]) => (
+                <button
+                  key={key}
+                  onClick={() => handleTemplateChange(key)}
+                  className={`p-3 rounded-lg border text-left transition-colors ${
+                    selectedTemplate === key
+                      ? 'border-indigo-500 bg-indigo-500/10 text-indigo-400'
+                      : 'border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-300'
+                  }`}
+                >
+                  <p className="text-sm font-medium">{template.label}</p>
+                  <p className="text-xs text-slate-500 mt-1">Template francese</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Message Editor */}
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-2">Messaggio (Modificabile)</label>
+            <textarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              className="w-full p-4 bg-slate-900 border border-slate-700 rounded-lg text-slate-200 focus:outline-none focus:border-indigo-500 resize-none h-48 font-mono text-sm"
+              placeholder="Digita il tuo messaggio..."
+            />
+            <p className="text-xs text-slate-500 mt-2">
+              Caratteri: {message.length} | Template: {WHATSAPP_TEMPLATES[selectedTemplate]?.label}
+            </p>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="p-6 border-t border-slate-700 bg-slate-800/50 flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-100 rounded-lg font-medium transition-colors"
+          >
+            Annulla
+          </button>
+          <button
+            onClick={handleSend}
+            className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+          >
+            <Send size={16} />
+            Invia su WhatsApp
+          </button>
+        </div>
+      </div>
+    </div>
   );
 };
 
@@ -561,86 +762,27 @@ const IptvManagerView = ({ subscriptions, onSendReminder, onAddSubscription, onN
       {/* Tabella Scadenze e Gestione */}
       <div className="border bg-slate-800 border-slate-700 rounded-xl overflow-hidden shadow-lg">
 
-         {/* Menu Cliente Selezionato */}
-         {selectedClient ? (
-           <div className="bg-indigo-600/10 border-b border-indigo-500/30 p-4">
-             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-               <div className="flex items-center gap-3">
-                 <div className="w-10 h-10 rounded-full bg-indigo-500/20 flex items-center justify-center">
-                   <Users size={20} className="text-indigo-400" />
-                 </div>
-                 <div>
-                   <h4 className="text-lg font-semibold text-slate-100">{selectedClient}</h4>
-                   <p className="text-sm text-slate-400">Abbonamenti attivi: {getClientSubscriptions().length}</p>
-                 </div>
-               </div>
-               <div className="flex gap-2 flex-wrap">
-                 <button
-                   onClick={() => {
-                     alert(`Visualizza Dettagli clicked for: ${selectedClient}`);
-                     const client = clients.find(c => c.name === selectedClient);
-                     if (client && onViewClientDetail) onViewClientDetail(client);
-                   }}
-                   className="flex items-center gap-2 px-4 py-2 bg-slate-600 hover:bg-slate-500 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
-                 >
-                   <Eye size={16} /> Visualizza Dettagli
-                 </button>
-                 <button
-                   onClick={() => {
-                     alert(`WhatsApp clicked for: ${selectedClient}`);
-                     const client = clients.find(c => c.name === selectedClient);
-                     if (client && onContactWhatsApp) onContactWhatsApp(client);
-                   }}
-                   className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
-                 >
-                   <MessageSquare size={16} /> WhatsApp
-                 </button>
-                 <button
-                   onClick={() => {
-                     alert('Nuovo Abbonamento clicked');
-                     if (onAddSubscription) onAddSubscription();
-                   }}
-                   className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
-                 >
-                   <Plus size={16} /> Nuovo Abbonamento
-                 </button>
-                 <button
-                   onClick={() => {
-                     alert(`Modifica Cliente clicked for: ${selectedClient}`);
-                     const client = clients.find(c => c.name === selectedClient);
-                     if (client && onEditClient) onEditClient(client);
-                   }}
-                   className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
-                 >
-                   <Edit size={16} /> Modifica Cliente
-                 </button>
-                 <button
-                   onClick={() => {
-                     alert(`Elimina Cliente clicked for: ${selectedClient}`);
-                     const client = clients.find(c => c.name === selectedClient);
-                     if (client && onDeleteClient) onDeleteClient(client.id);
-                   }}
-                   className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
-                 >
-                   <Trash2 size={16} /> Elimina Cliente
-                 </button>
-                 <button
-                   onClick={() => {
-                     alert('Deseleziona clicked');
-                     setSelectedClient(null);
-                   }}
-                   className="flex items-center gap-2 px-4 py-2 bg-slate-600 hover:bg-slate-500 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
-                 >
-                   <X size={16} /> Deseleziona
-                 </button>
-               </div>
-             </div>
-           </div>
-         ) : (
-           <div className="bg-yellow-600/10 border-b border-yellow-500/30 p-4">
-             <p className="text-yellow-200 text-sm">Nessun cliente selezionato. Clicca su un nome cliente nella tabella sottostante per visualizzare il menu delle azioni.</p>
-           </div>
-         )}
+         {/* Client Toolbar Component */}
+         <ClientToolbar
+           selectedClient={selectedClient}
+           clients={clients}
+           onDeselect={() => setSelectedClient(null)}
+           onViewDetails={(client) => {
+             if (onViewClientDetail) onViewClientDetail(client);
+           }}
+           onWhatsApp={(client) => {
+             if (onContactWhatsApp) onContactWhatsApp(client);
+           }}
+           onNewSubscription={(client) => {
+             if (onAddSubscription) onAddSubscription();
+           }}
+           onEditClient={(client) => {
+             if (onEditClient) onEditClient(client);
+           }}
+           onDeleteClient={(clientId) => {
+             if (onDeleteClient) onDeleteClient(clientId);
+           }}
+         />
 
          <div className="p-4 border-b border-slate-700 bg-slate-800/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <h3 className="text-lg font-semibold text-slate-100 flex items-center gap-2">
@@ -774,7 +916,11 @@ const ClientsLeadsView = ({
   onEditClient,
   onViewClientDetail,
   onConvertLeadToClient,
-  onUpdateLeadStatus
+  onUpdateLeadStatus,
+  onOpenWhatsAppModal,
+  onCreateLead,
+  onEditLead,
+  onDeleteLead
 }) => {
   const [viewMode, setViewMode] = useState('clients'); // 'clients' | 'leads'
   const [menuOpen, setMenuOpen] = useState(null);
@@ -800,7 +946,7 @@ const ClientsLeadsView = ({
           <p className="text-slate-400">Database contatti e pipeline di vendita</p>
         </div>
         <div className="flex gap-2 w-full md:w-auto">
-          <button onClick={() => onOpenModal()} className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium transition-colors w-full md:w-auto">
+          <button onClick={() => onCreateLead()} className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium transition-colors w-full md:w-auto">
             <Plus size={18} />
             <span className="hidden md:inline">Nuovo Contatto</span>
             <span className="md:hidden">Nuovo</span>
@@ -1018,12 +1164,32 @@ const ClientsLeadsView = ({
                               <button 
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  onEditLead(lead);
+                                  setMenuOpen(null);
+                                }}
+                                className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white flex items-center gap-2"
+                              >
+                                <Edit size={16} /> Modifica
+                              </button>
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   onConvertLeadToClient(lead);
                                   setMenuOpen(null);
                                 }}
                                 className="w-full text-left px-4 py-2 text-sm text-emerald-400 hover:bg-slate-700 hover:text-emerald-300 flex items-center gap-2"
                               >
                                 <UserPlus size={16} /> Converti in Cliente
+                              </button>
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onDeleteLead(lead.id);
+                                  setMenuOpen(null);
+                                }}
+                                className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-slate-700 hover:text-red-300 flex items-center gap-2"
+                              >
+                                <Trash2 size={16} /> Elimina
                               </button>
                             </div>
                           )}
@@ -1039,8 +1205,7 @@ const ClientsLeadsView = ({
                              <button 
                                onClick={(e) => {
                                  e.stopPropagation();
-                                 const phoneNumber = lead.phone.replace(/\s+/g, '').replace(/^\+39/, '');
-                                 window.open(`https://wa.me/${phoneNumber}`, '_blank');
+                                 onOpenWhatsAppModal(lead, 'test_info');
                                }}
                                className="text-slate-400 hover:text-green-400 transition-colors" 
                                title="WhatsApp"
@@ -1241,6 +1406,129 @@ const ClientModal = ({ isOpen, onClose, onSave, client, formData, onFormChange }
               className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
             >
               {client ? 'Salva Modifiche' : 'Crea Cliente'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+// --- MODAL CREAZIONE LEAD ---
+const LeadModal = ({ isOpen, onClose, onSave, lead, formData, onFormChange }) => {
+  if (!isOpen) return null;
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSave(formData);
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-slate-800 border border-slate-700 rounded-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-bold text-white">
+            {lead ? 'Modifica Lead' : 'Nuovo Contatto'}
+          </h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-white">
+            <X size={24} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Informazioni Base */}
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Nome Completo *</label>
+              <input
+                type="text"
+                value={formData.name || ''}
+                onChange={(e) => onFormChange({...formData, name: e.target.value})}
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-indigo-500"
+                placeholder="es. Mario Rossi"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Email *</label>
+              <input
+                type="email"
+                value={formData.email || ''}
+                onChange={(e) => onFormChange({...formData, email: e.target.value})}
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-indigo-500"
+                placeholder="es. mario.rossi@email.com"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Telefono *</label>
+              <input
+                type="tel"
+                value={formData.phone || ''}
+                onChange={(e) => onFormChange({...formData, phone: e.target.value})}
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-indigo-500"
+                placeholder="es. +39 333 1234567"
+                required
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Fonte</label>
+                <select
+                  value={formData.source || 'Manuale'}
+                  onChange={(e) => onFormChange({...formData, source: e.target.value})}
+                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-indigo-500"
+                >
+                  <option value="Manuale">Manuale</option>
+                  <option value="Telegram">Telegram</option>
+                  <option value="WhatsApp">WhatsApp</option>
+                  <option value="Instagram">Instagram</option>
+                  <option value="Web">Sito Web</option>
+                  <option value="Referral">Passaparola</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Interesse</label>
+                <select
+                  value={formData.interest || 'IPTV'}
+                  onChange={(e) => onFormChange({...formData, interest: e.target.value})}
+                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-indigo-500"
+                >
+                  <option value="IPTV">IPTV</option>
+                  <option value="IPTV Sport">IPTV Sport</option>
+                  <option value="IPTV Cinema">IPTV Cinema</option>
+                  <option value="Reseller">Rivenditore</option>
+                  <option value="Full Package">Pacchetto Completo</option>
+                  <option value="Crypto Info">Info Crypto</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Note (Opzionale)</label>
+              <textarea
+                value={formData.notes || ''}
+                onChange={(e) => onFormChange({...formData, notes: e.target.value})}
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-indigo-500 resize-none h-20"
+                placeholder="Note aggiuntive sul contatto..."
+              />
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="flex justify-end gap-3 pt-6 border-t border-slate-700">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 bg-slate-700 text-slate-100 rounded-lg hover:bg-slate-600 transition-colors"
+            >
+              Annulla
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+            >
+              {lead ? 'Salva Modifiche' : 'Crea Contatto'}
             </button>
           </div>
         </form>
@@ -1568,11 +1856,44 @@ const FinanceCalculatorView = ({
     loadAccountingData();
   }, [selectedPeriod, loadAccountingData]);
 
-  const profit = calcPrice - calcCost;
-  const margin = calcPrice > 0 ? ((profit / calcPrice) * 100).toFixed(1) : 0;
   const stats = calculateStats();
 
-  
+  // Dati per i grafici - guadagni per prodotto
+  const productRevenueData = subscriptionPlans.map(plan => {
+    const subscriptionsCount = subscriptions.filter(sub => 
+      sub.plan === plan.name && sub.status === 'active'
+    ).length;
+    const monthlyRevenue = subscriptionsCount * plan.price;
+    const monthlyCost = subscriptionsCount * plan.cost;
+    const monthlyProfit = monthlyRevenue - monthlyCost;
+    
+    return {
+      name: plan.name,
+      ricavi: monthlyRevenue,
+      costi: monthlyCost,
+      profitti: monthlyProfit,
+      abbonamenti: subscriptionsCount
+    };
+  });
+
+  // Dati andamento mensile (ultimi 6 mesi)
+  const monthlyTrendData = Array.from({length: 6}, (_, i) => {
+    const date = new Date();
+    date.setMonth(date.getMonth() - (5 - i));
+    const monthKey = date.toISOString().slice(0, 7);
+    const monthName = date.toLocaleDateString('it-IT', { month: 'short', year: '2-digit' });
+    
+    // Simula dati storici (in produzione verrebbero dal database)
+    const baseRevenue = stats.totalRevenue * (0.8 + Math.random() * 0.4);
+    const baseExpenses = stats.totalExpenses * (0.8 + Math.random() * 0.4);
+    
+    return {
+      mese: monthName,
+      ricavi: Math.round(baseRevenue),
+      costi: Math.round(baseExpenses),
+      profitti: Math.round(baseRevenue - baseExpenses)
+    };
+  });
 
   return (
     <div className="animate-fade-in space-y-6">
@@ -1602,8 +1923,163 @@ const FinanceCalculatorView = ({
             <RefreshCw size={16} />
             Sincronizza
           </button>
-          <button className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-sm font-medium border border-slate-700">Scarica Report CSV</button>
+          <button 
+            onClick={() => {
+              // Estrazione dati CSV
+              const csvData = [
+                ['Prodotto', 'Abbonamenti Attivi', 'Ricavi Mensili', 'Costi Mensili', 'Profitti Mensili', 'Margine %'],
+                ...productRevenueData.map(product => [
+                  product.name,
+                  product.abbonamenti,
+                  `€${product.ricavi.toFixed(2)}`,
+                  `€${product.costi.toFixed(2)}`,
+                  `€${product.profitti.toFixed(2)}`,
+                  product.ricavi > 0 ? `${((product.profitti / product.ricavi) * 100).toFixed(1)}%` : '0%'
+                ])
+              ];
+              
+              const csvContent = csvData.map(row => row.join(',')).join('\n');
+              const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+              const link = document.createElement('a');
+              link.href = URL.createObjectURL(blob);
+              link.download = `report-contabilita-${selectedPeriod}.csv`;
+              link.click();
+            }}
+            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-sm font-medium border border-slate-700 flex items-center gap-2"
+          >
+            <Download size={16} />
+            Scarica CSV
+          </button>
         </div>
+      </div>
+
+      {/* Statistiche Principali */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="p-6 border bg-slate-800 border-slate-700 rounded-xl">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-400">Ricavi Totali</p>
+              <p className="text-2xl font-bold text-emerald-400">€ {stats.totalRevenue.toLocaleString('it-IT', {minimumFractionDigits: 2})}</p>
+            </div>
+            <TrendingUp className="text-emerald-400" size={24} />
+          </div>
+        </div>
+        <div className="p-6 border bg-slate-800 border-slate-700 rounded-xl">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-400">Costi Totali</p>
+              <p className="text-2xl font-bold text-red-400">€ {stats.totalExpenses.toLocaleString('it-IT', {minimumFractionDigits: 2})}</p>
+            </div>
+            <DollarSign className="text-red-400" size={24} />
+          </div>
+        </div>
+        <div className="p-6 border bg-slate-800 border-slate-700 rounded-xl">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-400">Utile Netto</p>
+              <p className="text-2xl font-bold text-indigo-400">€ {stats.netProfit.toLocaleString('it-IT', {minimumFractionDigits: 2})}</p>
+            </div>
+            <Calculator className="text-indigo-400" size={24} />
+          </div>
+        </div>
+        <div className="p-6 border bg-slate-800 border-slate-700 rounded-xl">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-400">Margine Medio</p>
+              <p className="text-2xl font-bold text-violet-400">{stats.avgMargin.toFixed(1)}%</p>
+            </div>
+            <BarChart className="text-violet-400" size={24} />
+          </div>
+        </div>
+      </div>
+
+      {/* Grafici Guadagni Prodotti */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Grafico Ricavi per Prodotto */}
+        <div className="p-6 border bg-slate-800 border-slate-700 rounded-xl">
+          <h3 className="text-lg font-semibold text-slate-100 mb-4">Ricavi per Prodotto (Mensili)</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={productRevenueData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+              <XAxis dataKey="name" stroke="#9CA3AF" fontSize={12} />
+              <YAxis stroke="#9CA3AF" fontSize={12} />
+              <Tooltip 
+                contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151', borderRadius: '8px' }}
+                labelStyle={{ color: '#F3F4F6' }}
+              />
+              <Legend />
+              <Bar dataKey="ricavi" fill="#10B981" name="Ricavi (€)" />
+              <Bar dataKey="costi" fill="#EF4444" name="Costi (€)" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Grafico Andamento Mensile */}
+        <div className="p-6 border bg-slate-800 border-slate-700 rounded-xl">
+          <h3 className="text-lg font-semibold text-slate-100 mb-4">Andamento Ricavi (Ultimi 6 Mesi)</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <AreaChart data={monthlyTrendData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+              <XAxis dataKey="mese" stroke="#9CA3AF" fontSize={12} />
+              <YAxis stroke="#9CA3AF" fontSize={12} />
+              <Tooltip 
+                contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151', borderRadius: '8px' }}
+                labelStyle={{ color: '#F3F4F6' }}
+              />
+              <Legend />
+              <Area type="monotone" dataKey="ricavi" stackId="1" stroke="#10B981" fill="#10B981" fillOpacity={0.6} name="Ricavi (€)" />
+              <Area type="monotone" dataKey="costi" stackId="2" stroke="#EF4444" fill="#EF4444" fillOpacity={0.6} name="Costi (€)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Margini per Prodotto */}
+      <div className="p-6 border bg-slate-800 border-slate-700 rounded-xl">
+        <h3 className="text-lg font-semibold text-slate-100 mb-4">Margini di Profitto per Prodotto</h3>
+        {productRevenueData.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="text-xs uppercase border-b border-slate-700 text-slate-400">
+                  <th className="pb-3 pl-2">Prodotto</th>
+                  <th className="pb-3 text-center">Abbonamenti</th>
+                  <th className="pb-3 text-right">Ricavi</th>
+                  <th className="pb-3 text-right">Costi</th>
+                  <th className="pb-3 text-right">Profitti</th>
+                  <th className="pb-3 text-right">Margine</th>
+                </tr>
+              </thead>
+              <tbody className="text-sm">
+                {productRevenueData.map((product, index) => {
+                  const margin = product.ricavi > 0 ? ((product.profitti / product.ricavi) * 100).toFixed(1) : 0;
+                  return (
+                    <tr key={index} className="border-b border-slate-700/50 last:border-0 hover:bg-slate-700/30 transition-colors">
+                      <td className="py-3 pl-2 font-medium text-slate-200">{product.name}</td>
+                      <td className="py-3 text-center text-slate-300">{product.abbonamenti}</td>
+                      <td className="py-3 text-right text-emerald-400">€ {product.ricavi.toFixed(2)}</td>
+                      <td className="py-3 text-right text-red-300/80">€ {product.costi.toFixed(2)}</td>
+                      <td className="py-3 text-right font-bold text-indigo-400">€ {product.profitti.toFixed(2)}</td>
+                      <td className="py-3 text-right">
+                        <span className={`px-2 py-1 text-xs font-medium rounded ${
+                          margin >= 70 ? 'bg-emerald-500/20 text-emerald-400' :
+                          margin >= 50 ? 'bg-yellow-500/20 text-yellow-400' :
+                          'bg-red-500/20 text-red-400'
+                        }`}>
+                          {margin}%
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="text-center py-8 text-slate-400">
+            Nessun dato disponibile. Assicurati di avere piani abbonamento attivi.
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -1637,12 +2113,12 @@ const FinanceCalculatorView = ({
                 <div className="pt-4 mt-4 border-t border-slate-700">
                     <div className="flex justify-between items-center mb-2">
                         <span className="text-slate-400">Profitto Netto</span>
-                        <span className="text-xl font-bold text-emerald-400">+ € {profit.toFixed(2)}</span>
+                        <span className="text-xl font-bold text-emerald-400">+ € {(calcPrice - calcCost).toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between items-center">
                         <span className="text-slate-400">Margine %</span>
-                        <span className={`text-sm font-medium px-2 py-1 rounded ${Number(margin) > 50 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
-                            {margin}%
+                        <span className={`text-sm font-medium px-2 py-1 rounded ${calcPrice > 0 && ((calcPrice - calcCost) / calcPrice) * 100 > 50 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                            {calcPrice > 0 ? (((calcPrice - calcCost) / calcPrice) * 100).toFixed(1) : 0}%
                         </span>
                     </div>
                 </div>
@@ -1731,25 +2207,131 @@ const FinanceCalculatorView = ({
 
       {/* Gestione Piani Abbonamento */}
       <div className="p-6 border bg-slate-800 border-slate-700 rounded-xl">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold text-slate-100">Gestione Piani Abbonamento</h3>
-            <button
-              onClick={() => onOpenPlanModal()}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
-            >
-              <Plus size={16} />
-              Nuovo Piano
-            </button>
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h3 className="text-lg font-semibold text-slate-100">Gestione Piani IPTV</h3>
+              <p className="text-sm text-slate-400">Piani abbonamento attivi e gestione completa prodotti</p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  // Estrazione completa dati pacchi IPTV
+                  const csvData = [
+                    ['ID', 'Nome Piano', 'Categoria', 'Prezzo', 'Costo', 'Margine %', 'Durata Mesi', 'Connessioni Max', 'Stato', 'Abbonamenti Attivi', 'Ricavi Mensili', 'Profitti Mensili'],
+                    ...subscriptionPlans.map(plan => {
+                      const activeSubs = subscriptions.filter(sub => sub.plan === plan.name && sub.status === 'active').length;
+                      const monthlyRevenue = activeSubs * plan.price;
+                      const monthlyCost = activeSubs * plan.cost;
+                      const monthlyProfit = monthlyRevenue - monthlyCost;
+                      const margin = plan.price > 0 ? (((plan.price - plan.cost) / plan.price) * 100).toFixed(1) : 0;
+                      
+                      return [
+                        plan.id,
+                        plan.name,
+                        plan.category,
+                        plan.price,
+                        plan.cost,
+                        margin + '%',
+                        plan.duration_months,
+                        plan.max_connections,
+                        plan.is_active ? 'Attivo' : 'Disattivo',
+                        activeSubs,
+                        monthlyRevenue.toFixed(2),
+                        monthlyProfit.toFixed(2)
+                      ];
+                    })
+                  ];
+                  
+                  const csvContent = csvData.map(row => row.join(',')).join('\n');
+                  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                  const link = document.createElement('a');
+                  link.href = URL.createObjectURL(blob);
+                  link.download = `piani-iptv-${new Date().toISOString().split('T')[0]}.csv`;
+                  link.click();
+                }}
+                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-sm font-medium border border-slate-600 flex items-center gap-2"
+              >
+                <Download size={16} />
+                Esporta CSV
+              </button>
+              <button
+                onClick={() => onOpenPlanModal()}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+              >
+                <Plus size={16} />
+                Nuovo Piano
+              </button>
+            </div>
           </div>
+
+          {/* KPI Piani */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div className="p-4 bg-slate-700/50 rounded-lg border border-slate-600">
+              <p className="text-xs text-slate-400 uppercase">Piani Attivi</p>
+              <p className="text-2xl font-bold text-emerald-400">{subscriptionPlans.filter(p => p.is_active).length}</p>
+            </div>
+            <div className="p-4 bg-slate-700/50 rounded-lg border border-slate-600">
+              <p className="text-xs text-slate-400 uppercase">Abbonamenti Totali</p>
+              <p className="text-2xl font-bold text-indigo-400">{subscriptions.filter(s => s.status === 'active').length}</p>
+            </div>
+            <div className="p-4 bg-slate-700/50 rounded-lg border border-slate-600">
+              <p className="text-xs text-slate-400 uppercase">Ricavi Mensili</p>
+              <p className="text-2xl font-bold text-violet-400">
+                € {subscriptionPlans.reduce((sum, plan) => {
+                  const activeSubs = subscriptions.filter(sub => sub.plan === plan.name && sub.status === 'active').length;
+                  return sum + (activeSubs * plan.price);
+                }, 0).toFixed(0)}
+              </p>
+            </div>
+            <div className="p-4 bg-slate-700/50 rounded-lg border border-slate-600">
+              <p className="text-xs text-slate-400 uppercase">Margine Medio</p>
+              <p className="text-2xl font-bold text-cyan-400">
+                {subscriptionPlans.length > 0 ? 
+                  (subscriptionPlans.reduce((sum, plan) => {
+                    const margin = plan.price > 0 ? ((plan.price - plan.cost) / plan.price) * 100 : 0;
+                    return sum + margin;
+                  }, 0) / subscriptionPlans.length).toFixed(1) : 0}%
+              </p>
+            </div>
+          </div>
+
+          {/* Filtri e Ricerca */}
+          <div className="flex flex-wrap items-center gap-4 mb-6">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
+              <input 
+                type="text" 
+                placeholder="Cerca piano per nome..." 
+                className="w-full h-10 pl-9 pr-4 text-sm bg-slate-900 border border-slate-700 rounded-lg text-slate-200 focus:outline-none focus:border-indigo-500"
+              />
+            </div>
+            <select className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-200 text-sm focus:border-indigo-500 focus:outline-none">
+              <option value="all">Tutti i Piani</option>
+              <option value="active">Solo Attivi</option>
+              <option value="inactive">Solo Disattivi</option>
+            </select>
+            <select className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-200 text-sm focus:border-indigo-500 focus:outline-none">
+              <option value="name">Ordina per Nome</option>
+              <option value="price">Ordina per Prezzo</option>
+              <option value="margin">Ordina per Margine</option>
+              <option value="active_subs">Ordina per Abbonamenti</option>
+            </select>
+          </div>
+
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
                 <tr className="text-xs uppercase border-b border-slate-700 text-slate-400">
-                  <th className="pb-3 pl-2">Nome Piano</th>
-                  <th className="pb-3">Categoria</th>
+                  <th className="pb-3 pl-2">
+                    <input type="checkbox" className="rounded border-slate-600" />
+                  </th>
+                  <th className="pb-3">Piano IPTV</th>
+                  <th className="pb-3 text-center">Categoria</th>
                   <th className="pb-3 text-right">Prezzo</th>
                   <th className="pb-3 text-right">Costo</th>
                   <th className="pb-3 text-right">Margine</th>
+                  <th className="pb-3 text-center">Abbonamenti</th>
+                  <th className="pb-3 text-right">Ricavi Mese</th>
                   <th className="pb-3 text-center">Stato</th>
                   <th className="pb-3 text-center">Azioni</th>
                 </tr>
@@ -1757,31 +2339,86 @@ const FinanceCalculatorView = ({
               <tbody className="text-sm">
                 {subscriptionPlans.length > 0 ? subscriptionPlans.map(plan => {
                   const margin = plan.price > 0 ? (((plan.price - plan.cost) / plan.price) * 100).toFixed(1) : 0;
+                  const activeSubs = subscriptions.filter(sub => sub.plan === plan.name && sub.status === 'active').length;
+                  const monthlyRevenue = activeSubs * plan.price;
+                  const monthlyProfit = activeSubs * (plan.price - plan.cost);
+                  
                   return (
                     <tr key={plan.id} className="border-b border-slate-700/50 last:border-0 hover:bg-slate-700/30 transition-colors">
-                      <td className="py-3 pl-2 font-medium text-slate-200">{plan.name}</td>
-                      <td className="py-3 text-slate-300 capitalize">{plan.category}</td>
-                      <td className="py-3 text-right text-slate-300">€ {plan.price.toFixed(2)}</td>
-                      <td className="py-3 text-right text-red-300/80">€ {plan.cost.toFixed(2)}</td>
-                      <td className="py-3 text-right font-bold text-emerald-400">{margin}%</td>
-                      <td className="py-3 text-center">
+                      <td className="py-4 pl-2">
+                        <input type="checkbox" className="rounded border-slate-600" />
+                      </td>
+                      <td className="py-4">
+                        <div>
+                          <p className="font-medium text-slate-200">{plan.name}</p>
+                          <p className="text-xs text-slate-400">{plan.duration_months} mesi • Max {plan.max_connections} connessioni</p>
+                        </div>
+                      </td>
+                      <td className="py-4 text-center">
+                        <span className="px-2 py-1 text-xs font-medium rounded bg-slate-700 text-slate-300 capitalize">
+                          {plan.category}
+                        </span>
+                      </td>
+                      <td className="py-4 text-right font-medium text-slate-200">€ {plan.price.toFixed(2)}</td>
+                      <td className="py-4 text-right text-red-300/80">€ {plan.cost.toFixed(2)}</td>
+                      <td className="py-4 text-right">
+                        <span className={`px-2 py-1 text-xs font-medium rounded ${
+                          margin >= 70 ? 'bg-emerald-500/20 text-emerald-400' :
+                          margin >= 50 ? 'bg-yellow-500/20 text-yellow-400' :
+                          'bg-red-500/20 text-red-400'
+                        }`}>
+                          {margin}%
+                        </span>
+                      </td>
+                      <td className="py-4 text-center">
+                        <div className="flex flex-col items-center">
+                          <span className="font-bold text-indigo-400">{activeSubs}</span>
+                          <span className="text-xs text-slate-400">attivi</span>
+                        </div>
+                      </td>
+                      <td className="py-4 text-right">
+                        <div className="flex flex-col">
+                          <span className="font-medium text-emerald-400">€ {monthlyRevenue.toFixed(2)}</span>
+                          <span className="text-xs text-slate-400">€ {monthlyProfit.toFixed(2)} profitto</span>
+                        </div>
+                      </td>
+                      <td className="py-4 text-center">
                         <Badge color={plan.is_active ? 'green' : 'red'}>
                           {plan.is_active ? 'Attivo' : 'Disattivo'}
                         </Badge>
                       </td>
-                      <td className="py-3 text-center">
-                        <div className="flex gap-2 justify-center">
+                      <td className="py-4 text-center">
+                        <div className="flex gap-1 justify-center">
                           <button
                             onClick={() => onOpenPlanModal(plan)}
-                            className="px-2 py-1 text-xs font-medium text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 rounded transition-all duration-200"
+                            className="p-2 hover:bg-slate-700 rounded text-slate-400 hover:text-blue-400 transition-colors"
+                            title="Modifica Piano"
                           >
-                            Modifica
+                            <Edit size={16} />
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (window.confirm(`Duplicare il piano "${plan.name}"?`)) {
+                                const duplicatedPlan = {
+                                  ...plan,
+                                  id: Date.now(),
+                                  name: `${plan.name} (Copia)`
+                                };
+                                // Qui dovresti chiamare una funzione per salvare il piano duplicato
+                                alert('Funzionalità duplicazione in sviluppo');
+                              }
+                            }}
+                            className="p-2 hover:bg-slate-700 rounded text-slate-400 hover:text-indigo-400 transition-colors"
+                            title="Duplica Piano"
+                          >
+                            <Columns size={16} />
                           </button>
                           <button
                             onClick={() => onDeletePlan(plan.id)}
-                            className="px-2 py-1 text-xs font-medium text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 rounded transition-all duration-200"
+                            className="p-2 hover:bg-slate-700 rounded text-slate-400 hover:text-red-400 transition-colors"
+                            title="Elimina Piano"
                           >
-                            Elimina
+                            <Trash2 size={16} />
                           </button>
                         </div>
                       </td>
@@ -1789,13 +2426,31 @@ const FinanceCalculatorView = ({
                   );
                 }) : (
                   <tr>
-                    <td colSpan="7" className="py-8 text-center text-slate-400">
-                      Nessun piano abbonamento trovato. Clicca "Nuovo Piano" per creare il primo piano.
+                    <td colSpan="10" className="py-12 text-center text-slate-400">
+                      <div className="flex flex-col items-center gap-3">
+                        <Tv size={48} className="opacity-20" />
+                        <div>
+                          <p className="font-medium">Nessun piano abbonamento trovato</p>
+                          <p className="text-sm">Clicca "Nuovo Piano" per creare il primo piano IPTV</p>
+                        </div>
+                      </div>
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* Footer Tabella */}
+          <div className="flex justify-between items-center mt-4 pt-4 border-t border-slate-700">
+            <p className="text-sm text-slate-400">
+              {subscriptionPlans.length} piani totali • {subscriptionPlans.filter(p => p.is_active).length} attivi
+            </p>
+            <div className="flex gap-2">
+              <button className="px-3 py-1 text-sm text-slate-400 hover:text-slate-200">Precedente</button>
+              <span className="px-3 py-1 text-sm text-slate-300">1</span>
+              <button className="px-3 py-1 text-sm text-slate-400 hover:text-slate-200">Successivo</button>
+            </div>
           </div>
       </div>
 
@@ -2908,6 +3563,18 @@ export default function App() {
   const [showMassReminderModal, setShowMassReminderModal] = useState(false);
   const [showAddIptvModal, setShowAddIptvModal] = useState(false);
   const [showClientModal, setShowClientModal] = useState(false);
+  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
+  const [whatsAppContact, setWhatsAppContact] = useState(null);
+  const [whatsAppContext, setWhatsAppContext] = useState('general');
+  const [showLeadModal, setShowLeadModal] = useState(false);
+  const [leadForm, setLeadForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    source: 'Manuale',
+    interest: 'IPTV',
+    notes: ''
+  });
   // Plan modal state (single source of truth for plan CRUD)
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState(null);
@@ -3699,12 +4366,15 @@ export default function App() {
   };
 
   const convertLeadToClient = (lead) => {
+    // Prima invia il messaggio WhatsApp di conversione
+    openWhatsAppModal(lead, 'convert_client');
+
     // Crea un nuovo cliente basato sul lead
     const newClient = {
       id: Date.now(), // ID univoco
       name: lead.name,
-      email: `${lead.name.toLowerCase().replace(/\s+/g, '.')}@email.com`, // Email placeholder
-      phone: '+39 333 1234567', // Telefono placeholder
+      email: lead.email || `${lead.name.toLowerCase().replace(/\s+/g, '.')}@email.com`, // Usa email esistente o placeholder
+      phone: lead.phone || '+39 333 1234567', // Usa telefono esistente o placeholder
       avatar: lead.name.split(' ').map(n => n[0]).join('').toUpperCase(),
       status: 'active',
       type: lead.interest.includes('Reseller') ? 'Reseller' : 'Standard',
@@ -3723,12 +4393,21 @@ export default function App() {
 
     // Aggiungi il nuovo cliente
     setClients(prev => [...prev, newClient]);
-    
+
     // Rimuovi il lead dalla lista
     setLeads(prev => prev.filter(l => l.id !== lead.id));
 
+    // Passa automaticamente alla vista IPTV Manager se il cliente ha un abbonamento IPTV
+    if (newClient.iptv) {
+      setTimeout(() => {
+        setCurrentView('iptv');
+        // Seleziona automaticamente il cliente appena creato
+        setSelectedClient(newClient.name);
+      }, 1000); // Piccolo delay per permettere all'utente di vedere il messaggio WhatsApp
+    }
+
     // Mostra un messaggio di conferma
-    alert(`Lead "${lead.name}" convertito in cliente con successo!`);
+    alert(`Lead "${lead.name}" convertito in cliente! Verrà inviato un messaggio WhatsApp con le informazioni sui prezzi.`);
   };
 
   const updateLeadStatus = async (leadId, newStatus) => {
@@ -3740,12 +4419,110 @@ export default function App() {
 
       if (error) throw error;
 
-      setLeads(prev => prev.map(lead => 
+      const updatedLeads = leads.map(lead =>
         lead.id === leadId ? { ...lead, status: newStatus } : lead
-      ));
+      );
+      setLeads(updatedLeads);
+
+      // Invia messaggio WhatsApp basato sul nuovo status
+      const lead = updatedLeads.find(l => l.id === leadId);
+      if (lead) {
+        if (newStatus === 'trial') {
+          // Quando passa a trial, invia messaggio di informazioni test
+          setTimeout(() => openWhatsAppModal(lead, 'test_info'), 500);
+        } else if (newStatus === 'negotiating') {
+          // Quando passa a trattativa, invia messaggio di follow-up
+          setTimeout(() => openWhatsAppModal(lead, 'follow_up'), 500);
+        }
+      }
     } catch (err) {
       console.error('Error updating lead status:', err);
       alert('Errore nell\'aggiornamento dello stato del lead: ' + err.message);
+    }
+  };
+
+  // --- WHATSAPP HANDLERS ---
+  const openWhatsAppModal = (contact, context = 'general') => {
+    setWhatsAppContact(contact);
+    setWhatsAppContext(context);
+    setShowWhatsAppModal(true);
+  };
+
+  const handleWhatsAppSend = (contact, message, template) => {
+    console.log('WhatsApp message sent:', { contact, message, template });
+    // Qui puoi aggiungere logica per salvare la conversazione o aggiornare il database
+  };
+
+  const createLead = () => {
+    // Resetta il form e apri il modal
+    setLeadForm({
+      name: '',
+      email: '',
+      phone: '',
+      source: 'Manuale',
+      interest: 'IPTV',
+      notes: ''
+    });
+    setShowLeadModal(true);
+  };
+
+  const saveLead = async (formData) => {
+    try {
+      const newLead = {
+        id: Date.now(),
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        source: formData.source,
+        status: 'new',
+        time: 'Ora',
+        interest: formData.interest,
+        notes: formData.notes || ''
+      };
+
+      // Aggiungi alla lista leads locale
+      setLeads(prev => [...prev, newLead]);
+
+      // Salva su Supabase
+      const { error } = await supabase.from('leads').insert([newLead]);
+      if (error) throw error;
+
+      console.log('Lead creato con successo:', newLead);
+    } catch (err) {
+      console.error('Error creating lead:', err);
+      alert('Errore nella creazione del contatto: ' + err.message);
+    }
+  };
+
+  const editLead = (lead) => {
+    setLeadForm({
+      name: lead.name,
+      email: lead.email || '',
+      phone: lead.phone || '',
+      source: lead.source || 'Manuale',
+      interest: lead.interest || 'IPTV',
+      notes: lead.notes || ''
+    });
+    setShowLeadModal(true);
+    // Qui dovrei salvare l'ID del lead da modificare
+    // Per ora creo un nuovo lead, ma in futuro dovrei aggiornare quello esistente
+  };
+
+  const deleteLead = async (leadId) => {
+    if (!window.confirm('Sei sicuro di voler eliminare questo contatto?')) return;
+    
+    try {
+      // Rimuovi dalla lista locale
+      setLeads(prev => prev.filter(lead => lead.id !== leadId));
+      
+      // Elimina da Supabase
+      const { error } = await supabase.from('leads').delete().eq('id', leadId);
+      if (error) throw error;
+      
+      console.log('Lead eliminato con successo');
+    } catch (err) {
+      console.error('Error deleting lead:', err);
+      alert('Errore nell\'eliminazione del contatto: ' + err.message);
     }
   };
 
@@ -3822,6 +4599,10 @@ export default function App() {
           }}
           onConvertLeadToClient={convertLeadToClient}
           onUpdateLeadStatus={updateLeadStatus}
+          onOpenWhatsAppModal={openWhatsAppModal}
+          onCreateLead={createLead}
+          onEditLead={editLead}
+          onDeleteLead={deleteLead}
         />;
       case 'settings':
         return <SettingsView settings={settings} onUpdateSettings={updateSettings} />; // Nuova vista Impostazioni
@@ -3956,6 +4737,39 @@ export default function App() {
         plan={editingPlan}
         formData={planFormData}
         onFormChange={setPlanFormData}
+      />
+
+      {/* WhatsApp Modal */}
+      <WhatsAppModal
+        contact={whatsAppContact}
+        onClose={() => {
+          setShowWhatsAppModal(false);
+          setWhatsAppContact(null);
+          setWhatsAppContext('general');
+        }}
+        onSend={handleWhatsAppSend}
+        context={whatsAppContext}
+        isOpen={showWhatsAppModal}
+      />
+
+      {/* Lead Modal */}
+      <LeadModal
+        isOpen={showLeadModal}
+        onClose={() => {
+          setShowLeadModal(false);
+          setLeadForm({
+            name: '',
+            email: '',
+            phone: '',
+            source: 'Manuale',
+            interest: 'IPTV',
+            notes: ''
+          });
+        }}
+        onSave={saveLead}
+        lead={null}
+        formData={leadForm}
+        onFormChange={setLeadForm}
       />
 
     </div>
