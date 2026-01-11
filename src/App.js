@@ -3242,6 +3242,12 @@ export default function App() {
           } : client
         ));
       } else {
+        // Calcola il prezzo basato sul piano
+        let price = 10; // default
+        if (iptvData.plan?.includes('12 Mesi')) price = 80;
+        else if (iptvData.plan?.includes('6 Mesi')) price = 45;
+        else if (iptvData.plan?.includes('3 Mesi')) price = 25;
+
         // Create new subscription
         const newSub = {
           name: iptvData.ownerName || `User-${Date.now().toString().slice(-3)}`,
@@ -3270,12 +3276,6 @@ export default function App() {
         // Salva transazione contabile per il nuovo abbonamento
         const transactionDate = new Date().toISOString().split('T')[0];
         const period = transactionDate.substring(0, 7);
-
-        // Calcola il prezzo basato sul piano
-        let price = 10; // default
-        if (iptvData.plan?.includes('12 Mesi')) price = 80;
-        else if (iptvData.plan?.includes('6 Mesi')) price = 45;
-        else if (iptvData.plan?.includes('3 Mesi')) price = 25;
 
         const accountingRecord = {
           id: Date.now(),
