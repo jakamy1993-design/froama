@@ -3652,7 +3652,10 @@ export default function App() {
       closePlanModal();
     } catch (err) {
       console.error('Error saving plan:', err);
-      window.alert('Errore durante il salvataggio del piano.');
+      const errorMsg = err?.code === 'PGRST116' || err?.message?.includes('404')
+        ? 'La tabella subscription_plans non esiste. Eseguire lo schema SQL in Supabase.'
+        : 'Errore durante il salvataggio del piano.';
+      window.alert(errorMsg);
     }
   };
 
@@ -3664,7 +3667,10 @@ export default function App() {
       setSubscriptionPlans(prev => prev.filter(p => p.id !== id));
     } catch (err) {
       console.error('Error deleting plan:', err);
-      window.alert('Errore durante l\'eliminazione del piano.');
+      const errorMsg = err?.code === 'PGRST116' || err?.message?.includes('404')
+        ? 'La tabella subscription_plans non esiste. Eseguire lo schema SQL in Supabase.'
+        : 'Errore durante l\'eliminazione del piano.';
+      window.alert(errorMsg);
     }
   };
 
@@ -3770,7 +3776,10 @@ export default function App() {
       if (clientsError) throw clientsError;
       if (subsError) throw subsError;
       if (leadsError) throw leadsError;
-      if (plansError) throw plansError;
+      // subscription_plans is optional - log warning but don't fail sync if table doesn't exist
+      if (plansError) {
+        console.warn('subscription_plans table not available:', plansError.message);
+      }
 
       if (Array.isArray(clientsData)) setClients(clientsData);
       if (Array.isArray(subsData)) setSubscriptions(subsData);
@@ -3867,6 +3876,12 @@ export default function App() {
           } : client
         ));
       } else {
+        // Calcola il prezzo basato sul piano
+        let price = 10; // default
+        if (iptvData.plan?.includes('12 Mesi')) price = 80;
+        else if (iptvData.plan?.includes('6 Mesi')) price = 45;
+        else if (iptvData.plan?.includes('3 Mesi')) price = 25;
+
         // Create new subscription
         // Calcola il prezzo basato sul piano
         let price = 10; // default
